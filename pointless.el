@@ -572,6 +572,14 @@ number-of-keys subsets at each level of the tree.")
                                              (lambda (istep) (pointless-helper-re-search-forward org-tag-line-re))
                                              :start-position-fn (apply-partially #'goto-char (window-start)))))
 
+(pointless-defjump-unidirectional pointless-jump-keyword
+                                  (let ((face 'font-lock-keyword-face))
+                                    (pointless--collect-targets-iteratively
+                                     (lambda (istep) (unless (text-property-search-forward 'face face #'eq t)
+                                                       (end-of-buffer)))
+                                     :start-position-fn (apply-partially #'goto-char (window-start)))))
+
+
 
 
 ;;(remove-overlays)
