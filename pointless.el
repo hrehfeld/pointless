@@ -339,10 +339,11 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
   "Use highest number of keys `NUM-KEYS' necessary and return subsets of `VALUES' that are filled as much as possible in the beginning."
   (seq-partition values (ceiling (length values) num-keys)))
 
-(defun pointless-partition-values-quick-first (values num-keys)
+(defun pointless-partition-values-quick-first (values num-keys &optional num-quick-keys)
   ""
   ;; (seq-partition values (1+ (/ (length values) 2)))
-  (let ((res
+  (let* ((num-quick-keys (or num-quick-keys (floor num-keys 2)))
+         (res
          (append (mapcar #'list (seq-take values (1- num-keys)))
                  (list (nthcdr (1- num-keys ) values)))))
     (message "quick-first: %S" res)
