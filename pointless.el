@@ -112,6 +112,13 @@ pointless will use these list to build keys relative to point, each list element
           (t
            overlayed-str))))
 
+(defun pointless-sort-candidates-close-to-point (candidates)
+  (let ((point (point)))
+    (cl-sort candidates (lambda (a b)
+                          (< (abs (- point a))
+                             (abs (- point b)))))))
+
+
 (defun pointless--show-keys (keys-faces position next-position &optional compose-fn)
   (let* ((num-keys (length keys-faces))
          (ilast-key (1- num-keys))
@@ -185,10 +192,52 @@ Each function is called with KEY and POSITION as its arguments.")
 number-of-keys subsets at each level of the tree.")
 
 
-(defvar pointless-compose-overlay-default-function #'pointless--compose-overwriting-overlay "")
-(defvar pointless-compose-overlay-function-alist nil "Define compose-overlay functions in an alist per command.")
-(defvar pointless-partition-candidates-default-function #'pointless-partition-values-top-down "")
-(defvar pointless-partition-candidates-function-alist nil "Define partition-candidates functions in an alist per command.")
+(defvar pointless-compose-overlay-default-function #'pointless--compose-overwriting-overlay "Default function to compose overlays with the overlayed buffer content.")
+(defvar pointless-compose-overlay-function-alist nil "Define functions to compose overlays with the overlayed buffer content in an alist per command.
+
+Should be a list of `cons' cells `(COMMAND . COMPOSE-OVERLAY-FUNCTION)'.")
+
+(defvar pointless-partition-candidates-default-function #'pointless-partition-values-top-down "Default function to partition candidates")
+(defvar pointless-partition-candidates-function-alist nil "Define functions to partition candidates in an alist per command.
+
+Should be a list of `cons' cells `(COMMAND . PARTITION-CANDIDATES-FUNCTION)'.")
+
+(defun pointless-partition-candidates-function-default (command-name &optional partition-fn)
+  "Convenience function to retrieve"
+  (or partition-fn
+      (alist-get command-name pointless-partition-candidates-function-alist)
+      pointless-partition-candidates-default-function))
+
+
+(defvar pointless-sort-candidates-default-function nil "Default function to sort candidates")
+(defvar pointless-sort-candidates-function-alist nil "Define functions to sort candidates in an alist per command.
+
+Should be a list of `cons' cells like `(COMMAND . SORT-CANDIDATES-FUNCTION)'.")
+
+
+(defvar pointless-keysets-alist nil "Define keysets in an alist per command.
+
+Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' or a number to use a keyset in `pointless-keys'")
+
+
+(defun pointless-sort-candidates-function-default (command-name &optional partition-fn)
+  (or partition-fn
+      (alist-get command-name pointless-sort-candidates-function-alist)
+      pointless-sort-candidates-default-function))
+
+;;(pointless-partition-candidates-function-default 'pointless-jump-word-beginning)
+
+(defun pointless-keyset-default (command-name &optional keyset)
+  (let ((keyset (or keyset
+                    (alist-get command-name pointless-keysets-alist)
+                    ;; just take the first keyset
+                    (car (pointless-keys)))))
+    ;; if keyset is a number, interpret as index into pointless-keys
+    (if (numberp keyset)
+        (nth keyset (pointless-keys))
+      keyset)))
+
+
 
 (defun pointless--do-jump-no-user-options (keys-faces-positions-nodes compose-fn)
   "`COMMAND-NAME' is the name of the calling command."
@@ -302,28 +351,28 @@ number-of-keys subsets at each level of the tree.")
 ;;(setq pointless-make-jump-keys-unidirectional-partition-function #'pointless-partition-values-quick-first)
 
 (defun pointless-make-jump-keys-unidirectional (keys positions partition-fn)
-  (cl-assert partition-fn t)
-  (let ((keys-faces-positions-nodes
-         (let ((num-keys (length keys))
-               )
-           (cl-labels
-               ((descend (ilevel values)
-                         (let* ((num-values (length values))
-                                (face (or (nth ilevel pointless-faces) 'pointless-face-further))
-                                (faces (-repeat num-values face)))
-                           ;;(message "level: %S,	num-keys: %S,	num-values: %S,	keys: %S" ilevel num-keys num-values keys)
-                           (let ((res (if (<= num-values num-keys)
-                                          values
-                                        (let ((position-partitions (funcall partition-fn values num-keys)))
-                                          (seq-map (lambda (positions)
-                                                     (if (length> positions 1)
-                                                         (descend (1+ ilevel) positions)
-                                                       (let ((position (car positions)))
-                                                         (cl-assert (number-or-marker-p position) t)
-                                                         position)))
-                                                   position-partitions)))))
-                             (-zip-lists keys faces res)))))
-             (descend 0 positions)))))
+  (cl-assert (functionp partition-fn) t)
+  (let* ((keys (if (stringp keys) (string-to-list keys) keys))
+         (num-keys (length keys))
+         (keys-faces-positions-nodes
+          (cl-labels
+              ((descend (ilevel values)
+                        (let* ((num-values (length values))
+                               (face (or (nth ilevel pointless-faces) 'pointless-face-further))
+                               (faces (-repeat num-values face)))
+                          ;;(message "level: %S,	num-keys: %S,	num-values: %S,	keys: %S" ilevel num-keys num-values keys)
+                          (let ((res (if (<= num-values num-keys)
+                                         values
+                                       (let ((position-partitions (funcall partition-fn values num-keys)))
+                                         (seq-map (lambda (positions)
+                                                    (if (length> positions 1)
+                                                        (descend (1+ ilevel) positions)
+                                                      (let ((position (car positions)))
+                                                        (cl-assert (number-or-marker-p position) t)
+                                                        position)))
+                                                  position-partitions)))))
+                            (-zip-lists keys faces res)))))
+            (descend 0 positions))))
     (cl-labels ((count-leafs (keys-faces-positions-nodes)
                          (let ((values (caddr keys-faces-positions-nodes)))
                            (if (pointless--tree-position-p values)
@@ -424,34 +473,52 @@ number-of-keys subsets at each level of the tree.")
     )
   )
 
-(defun pointless-partition-candidates-function (command-name &optional partition-fn)
-  (or partition-fn
-      (assq command-name pointless-partition-candidates-function-alist)
-      pointless-partition-candidates-default-function))
 
-;;(pointless-partition-candidates-function 'pointless-jump-word-beginning)
-
+;; &key aren't working with &rest for some reason
 (cl-defmacro pointless-defjump-unidirectional (name &rest args)
+  "Define a jump command conveniently.
+
+`NAME' is the name of the command to be defined.
+
+`ARGS' consists of KEYWORDS and `&rest'.
+`&rest' is a function body that returns a list of candidate positions.
+
+`:MAX-NUM-CANDIDATES' is the maximum number of candidates. This
+is applied *after* sorting.
+
+`:KEYSET' is the set of keys to be used.
+
+`:SORT-FN' is a function that is called with the list of
+candidates as the single argument and returns the list sorted.
+
+`:PARTITION-FN' is a candidate partition function handed to
+`pointless-make-jump-keys-unidirectional'.
+"
   (cl-destructuring-bind (candidates-forms keyword-args)
-      (pointless--normalize-keyword-arguments-with-rest '(:partition-fn :max-num-candidates) args)
-    (message "%S" keyword-args)
+      (pointless--normalize-keyword-arguments-with-rest '(:sort-fn :partition-fn :max-num-candidates :keyset) args)
+    ;;(message "%S" keyword-args)
     (let ((positions (gensym))
-          (max-num-candidates (gensym)))
+          (max-num-candidates (gensym))
+          (sort-fn (gensym 'sort-fn))
+          (keyset (gensym)))
       `(defun ,name ()
          (interactive)
-         (let* ((,positions (pointless-save-window-start-and-mark-and-excursion ,@candidates-forms))
-                (,max-num-candidates ,(plist-get keyword-args :max-num-candidates)))
+         (let* ((,sort-fn (pointless-sort-candidates-function-default (quote ,name) ,(plist-get keyword-args :sort-fn)))
+                (,max-num-candidates ,(plist-get keyword-args :max-num-candidates))
+                (,keyset (pointless-keyset-default ',name ,(plist-get keyword-args :keyset)))
+                (,positions (pointless-save-window-start-and-mark-and-excursion ,@candidates-forms))
+                (,positions (if ,sort-fn (funcall ,sort-fn ,positions) ,positions))
+                (,positions (if ,max-num-candidates (seq-take ,positions ,max-num-candidates) ,positions))
+                )
            (pointless-do-jump
             ',name
             (pointless-make-jump-keys-unidirectional
              ;;keys
-             (car (pointless-get-keys-unidirectional))
+             (car ,keyset)
              ;;positions
-             (if ,max-num-candidates
-                 (seq-take ,positions ,max-num-candidates)
-               ,positions)
+             ,positions
              ;;partition-fn
-             (pointless-partition-candidates-function (quote ,name) ,(plist-get keyword-args :partition-fn)))))
+             (pointless-partition-candidates-function-default ',name ,(plist-get keyword-args :partition-fn)))))
          )))
   )
 
