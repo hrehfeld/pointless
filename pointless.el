@@ -293,7 +293,7 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
   (setq inhibit-quit nil))
 
 
-(defun pointless-do-jump (command-name keys-faces-positions-nodes &optional compose-fn partition-fn)
+(defun pointless-do-jump (command-name keys-faces-positions-nodes &optional compose-fn)
   "`COMMAND-NAME' is the name of the calling command."
   (let ((compose-fn (or compose-fn (assq command-name pointless-compose-overlay-function-alist) pointless-compose-overlay-default-function))
 
