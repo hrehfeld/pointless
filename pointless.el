@@ -1,12 +1,12 @@
 ;; -*- lexical-binding: t; -*-
 
 
-(defface pointless-target `((t . (:foreground "white" :background "#a00"))) "Generic face for a pointless jump target.")
+(defface pointless-target `((t . (:foreground "white" :background "#892E8B"))) "Generic face for a pointless jump target.")
 (defface pointless-target-1 `((t . (:inherit pointless-target))) "First face for pointless jump targets.")
-(defface pointless-target-2 `((t . (:background "dark green" :inherit pointless-target))) "Second face for pointless jump targets.")
-(defface pointless-target-3 `((t . (:background "dark blue" :inherit pointless-target))) "Second face for pointless jump targets.")
-(defface pointless-target-4 `((t . (:background "dark pink" :inherit pointless-target))) "Second face for pointless jump targets.")
-(defface pointless-face-further `((t . (:background "#aaa" :inherit pointless-target))) "Generic face for a pointless jump target when no better face is available.")
+(defface pointless-target-2 `((t . (:background "#DE3E7A" :inherit pointless-target))) "Second face for pointless jump targets.")
+(defface pointless-target-3 `((t . (:background "#FF8964" :inherit pointless-target))) "Second face for pointless jump targets.")
+(defface pointless-target-4 `((t . (:background "#F5B83B" :inherit pointless-target))) "Second face for pointless jump targets.")
+(defface pointless-face-further `((t . (:background "#C0E08B" :inherit pointless-target))) "Generic face for a pointless jump target when no better face is available.")
 
 
 (defmacro pointless-save-window-start-and-mark-and-excursion (&rest body)
@@ -19,8 +19,8 @@
            (,point (point))
            (,result (save-mark-and-excursion ,@body)))
        (set-window-start ,window ,window-start)
-       (cl-assert (= (point) ,point) t)
-       ;;(goto-char ,point)
+       ;; (cl-assert (= (point) ,point) t)
+       (goto-char ,point)
        ,result
        )))
 
@@ -51,6 +51,9 @@
 pointless will use these list to build keys relative to point, each list element (a list of keys) will be assigned to one category of jumps.")
 ;;(setq pointless-keys '(("asdfghjkl;'" . ?h) ("qwertyuiop" . ?y) ("zxcvbnm,." . ?b) ("1234567890" . ?6)))
 
+;; TODO: add other rows as lists of characters
+(defvar pointless-jump-keysets '((?a ?s ?d ?f ?g ?h ?j ?k ?l ?\;)))
+
 (defvar pointless-faces '(pointless-target-1 pointless-target-2
                                              pointless-target-3
                                              pointless-target-4)
@@ -77,23 +80,30 @@ pointless will use these list to build keys relative to point, each list element
    (when start-position-fn
      (funcall start-position-fn))
    (let ((start-position (point)))
-     (cl-flet ((within-region ()
-                              (and (<= region-begin (point))
-                                   (<= (point-min) (point))
-                                   (< (point) region-end)
-                                   (< (point) (point-max))
+     (cl-flet ((within-region (pos)
+                              (and (<= region-begin pos)
+                                   (<= (point-min) pos)
+                                   (< pos region-end)
+                                   (<= pos (point-max))
                                    )))
-       (let ((candidates (cl-loop for istep from 0
-                                  while (and (within-region)
+       (let ((candidates (cl-loop with last-point = (1- (point))
+                                  for istep from 0
+                                  do (progn
+                                       (setq last-point (point))
+                                       (pointless--funcall-arg-maybe create-targets-fun istep)
+                                       ;; (message "collect: %i %i %i %i" istep (point) last-point region-begin)
+                                       )
+                                  while (and (within-region (point))
                                              (or (eq max-num-candidates nil)
-                                                 (< istep max-num-candidates))
-                                             )
-                                  do (pointless--funcall-arg-maybe create-targets-fun istep)
+                                                 (< istep (- max-num-candidates (if include-start-position 1 0))))
+                                             ;; allow the first step to sit at region-begin
+                                             (or (= istep 0) (/= (point) last-point)))
                                   ;; filter out candidates that are outside region
                                   ;; e.g. with a regex search, condition might be true before the movement
-                                  if (within-region)
-                                  collect (point)
+                                  ;;if (and (within-region (point)))
+                                  collect (progn (point))
                                   )))
+         (cl-check-type candidates (list-of number))
          (if include-start-position
              (cons start-position candidates)
            candidates))))))
@@ -114,9 +124,12 @@ pointless will use these list to build keys relative to point, each list element
 
 (defun pointless-sort-candidates-close-to-point (candidates)
   (let ((point (point)))
-    (cl-sort candidates (lambda (a b)
-                          (< (abs (- point a))
-                             (abs (- point b)))))))
+    (cl-sort candidates (lambda (&rest positions)
+                          (cl-destructuring-bind (a-dist b-dist)
+                              (mapcar (lambda (pos) (abs (- point pos))) positions)
+                            (cl-destructuring-bind (a b) positions
+                              (cond ((< a-dist b-dist) t)
+                                    ((= a-dist b-dist) (>= a b)))))))))
 
 
 (defun pointless--show-keys (keys-faces position next-position &optional compose-fn)
@@ -147,8 +160,7 @@ pointless will use these list to build keys relative to point, each list element
 (defun pointless--tree-position-p (node) (number-or-marker-p node))
 
 (defun pointless--get-position-prefix-keys (key-face-nodes-node &optional prefix-keys)
-  (pcase-let*
-      ((`(,key ,face ,tree-or-position) key-face-nodes-node))
+  (cl-destructuring-bind (key face tree-or-position) key-face-nodes-node
     (let ((prefix-keys (cons (cons key face) prefix-keys)))
       ;;(message "%S %S --- %S" key face tree-or-position)
       (if (pointless--tree-position-p tree-or-position)
@@ -157,24 +169,32 @@ pointless will use these list to build keys relative to point, each list element
         ;; inner nodes just collect prefixes and results
         (seq-mapcat (lambda (el) (pointless--get-position-prefix-keys el prefix-keys))
                     tree-or-position)
-        )))
-  )
+        ))))
 
 (defun pointless--create-overlays (keys-faces-positions-nodes &optional compose-fn)
   "Create overlays from the `KEYS-FACES-POSITIONS-NODES' and return an
 list like `((POSITION KEY-SEQUENCE (OVERLAY ...) (OVERLAY ...) ...) ...)'"
+  (cl-assert (equal keys-faces-positions-nodes (seq-uniq keys-faces-positions-nodes)) t)
+  (cl-assert (equal (mapcar #'car keys-faces-positions-nodes) (seq-uniq (mapcar #'car keys-faces-positions-nodes))))
   ;;(message "pointless--create-overlays %S" keys-faces-positions-nodes)
   (let* ((positions-prefix-keys (seq-mapcat #'pointless--get-position-prefix-keys keys-faces-positions-nodes))
          (positions-prefix-keys (cl-sort positions-prefix-keys #'< :key #'car))
          )
     (apply #'seq-concatenate 'list
+           (let ((tail (cdr positions-prefix-keys)))
              (cl-loop
-              for iposition from 0
               for (position prefix-keys) in positions-prefix-keys
               ;; only place overlay on a single char, so we only take buffer-substring of length 1
               collect
-              (let* ((next-position (car (nth (1+ iposition) positions-prefix-keys))))
-                (pointless--show-keys prefix-keys position next-position compose-fn))))))
+              (let* ((next-position (if tail (caar tail) nil)))
+                (cl-check-type position number-or-marker)
+                (cl-check-type next-position (or null number-or-marker))
+                (when tail
+                  (cl-assert (< position next-position) t)
+                  ;; keep tail in sync with iterator
+                  (setq tail (cdr tail)))
+                ;; (message "pointless--create-overlays %S %S" position next-position)
+                (pointless--show-keys prefix-keys position next-position compose-fn)))))))
 
 ;; (pointless--create-overlays
 ;;  (pointless-make-jump-keys-unidirectional (string-to-list "123") (mapcar (lambda (i) (+ (window-start) (* 10 i)))
@@ -220,21 +240,33 @@ Should be a list of `cons' cells like `(COMMAND . SORT-CANDIDATES-FUNCTION)'.")
 Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' or a number to use a keyset in `pointless-keys'")
 
 
+(defun pointless-helper-default (command-name command-value-alist default-value &optional explicit-arg type)
+  (let ((value (or (alist-get command-name command-value-alist)
+                   explicit-arg
+                   default-value)))
+                   (when type
+                     (eval `(cl-check-type ',value ,type) t))
+                     value))
+
 (defun pointless-sort-candidates-function-default (command-name &optional partition-fn)
-  (or partition-fn
-      (alist-get command-name pointless-sort-candidates-function-alist)
-      pointless-sort-candidates-default-function))
+  (pointless-helper-default command-name pointless-sort-candidates-function-alist pointless-sort-candidates-default-function partition-fn))
 
 ;;(pointless-partition-candidates-function-default 'pointless-jump-word-beginning)
 
-(defun pointless-keyset-default (command-name &optional keyset)
-  (let ((keyset (or keyset
-                    (alist-get command-name pointless-keysets-alist)
-                    ;; just take the first keyset
-                    (car (pointless-keys)))))
+(defun pointless-keyset-default (command-name keysets &optional explicit-keyset)
+  (cl-check-type keysets (list-of (list-of number)))
+  (cl-check-type explicit-keyset (or null (list-of number)))
+  (cl-check-type command-name symbol)
+  (let ((keyset (pointless-helper-default command-name
+                                          pointless-keysets-alist
+                                          ;; just take the first keyset
+                                          (car keysets)
+                                          explicit-keyset
+                                          '(list-of number))))
+    (cl-check-type keyset (list-of number))
     ;; if keyset is a number, interpret as index into pointless-keys
     (if (numberp keyset)
-        (nth keyset (pointless-keys))
+        (nth keyset pointless-jump-keysets)
       keyset)))
 
 
@@ -282,7 +314,8 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
                              ;;(message "pointless-do-jump before next")
                              (if (pointless--tree-position-p chosen-item)
                                  (progn
-                                   (push-mark)
+                                   (unless mark-active
+                                     (push-mark nil nil))
                                    (goto-char chosen-item))
                                (read-level (1+ ilevel) prefix-keys chosen-item)))
                            )))
@@ -337,23 +370,76 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
 
 (defun pointless-partition-values-top-down (values num-keys)
   "Use highest number of keys `NUM-KEYS' necessary and return subsets of `VALUES' that are filled as much as possible in the beginning."
-  (seq-partition values (ceiling (length values) num-keys)))
+  (seq-reverse
+   (mapcar #'seq-reverse
+           (seq-partition (seq-reverse values) (ceiling (length values) num-keys)))))
 
-(defun pointless-partition-values-quick-first (values num-keys &optional num-quick-keys)
+(defun pointless-partition-values-quick-first (values num-keys &optional quick-key-ratio tree-keys-first?)
   ""
+      ;;(message "values: %S" values)
   ;; (seq-partition values (1+ (/ (length values) 2)))
-  (let* ((num-quick-keys (or num-quick-keys (floor num-keys 2)))
-         (res
-         (append (mapcar #'list (seq-take values (1- num-keys)))
-                 (list (nthcdr (1- num-keys ) values)))))
-    (message "quick-first: %S" res)
-    res)
-  )
-;;(setq pointless-make-jump-keys-unidirectional-partition-function #'pointless-partition-values-quick-first)
+  (let* ((num-values (length values))
+         (quick-key-ratio (or quick-key-ratio 0.75))
+         (min-num-quick-keys (min (floor num-keys (/ 1 quick-key-ratio)) (1- num-keys)))
+         (max-num-tree-keys (- num-keys min-num-quick-keys))
+         (quick-values (nreverse (seq-take values min-num-quick-keys)))
+         (tree-values (seq-reverse (nthcdr min-num-quick-keys values))))
+    (cl-assert (> num-keys min-num-quick-keys 0) t)
+    ;; (message "tree-values: %i %S" (length tree-values) tree-values)
+    ;; (message "quick-values: %i %S" (length quick-values) quick-values)
+    ;; (message "num-keys: %i %i %i" num-keys min-num-quick-keys max-num-tree-keys)
+    (cl-assert (= num-values (+ (length quick-values) (length tree-values))) t)
+    (let* ((tree-values (cl-loop for depth from 1
+                                 with partitions = (seq-partition tree-values num-keys)
+                                 while (length> partitions max-num-tree-keys)
+                                 do (let ((tree-size (+ num-keys (* (1- depth)
+                                                                    min-num-quick-keys))))
+                                      (setq partitions (seq-partition tree-values
+                                                                      tree-size))
+                                      (setq depth (1+ depth)))
+                                 finally return (nreverse (mapcar #'nreverse partitions))))
+           )
+      (cl-assert tree-values t)
+      ;; extra error checking
+      ;; (message "tree-values: %i %S" (length tree-values) tree-values)
+      ;; (message "quick-values: %i %S" (length quick-values) quick-values)
+      (cl-labels ((num-values () (+ (length quick-values) (-reduce #'+ (mapcar #'length tree-values)))))
+        (cl-assert (= (length values) (num-values)) t)
+        (cl-loop while (< (+ (length quick-values) (length tree-values)) (1- num-keys))
+                 do (progn
+                      (push (car (car tree-values)) quick-values)
+                      (pop (car tree-values))
+                      (cl-assert (= (length values) (num-values)) t)
+                      )
+                 unless (car tree-values)
+                 do (pop tree-values)))
+      ;; extra error checking end
+      (cl-assert tree-values t)
+      (let ((quick-values (mapcar #'list (nreverse quick-values))))
+        ;; (message "tree-values: %i %S" (length tree-values) tree-values)
+        ;; (message "quick-values: %i %S" (length quick-values) quick-values)
+        (cl-destructuring-bind (front-values back-values)
+            ;; assign vars
+            (let ((vs (list quick-values tree-values)))
+              (if tree-keys-first? (nreverse vs) vs))
+          (let* ((result (append front-values back-values)))
+            ;; (message "result: %i %S" (length result) result)
+            (cl-assert result t)
+            (cl-check-type result (list-of (list-of number-or-marker)))
+            (cl-assert (<= (length result) num-keys) t)
+            (cl-assert (= (length values) (-reduce #'+ (mapcar #'length result))) t)
+            result))))))
+
+(defun pointless-partition-values-quick-last (values num-keys &optional num-quick-keys)
+  (pointless-partition-values-quick-first values num-keys num-quick-keys t))
 
 (defun pointless-make-jump-keys-unidirectional (keys positions partition-fn)
   (cl-assert (functionp partition-fn) t)
-  (let* ((keys (if (stringp keys) (string-to-list keys) keys))
+  (cl-check-type keys (satisfies listp))
+  (cl-assert (length> keys 1) t)
+  (cl-check-type positions (list-of number-or-marker))
+  (let* ((positions (seq-uniq positions))
+         (keys (if (stringp keys) (string-to-list keys) keys))
          (num-keys (length keys))
          (keys-faces-positions-nodes
           (cl-labels
@@ -362,28 +448,47 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
                                (face (or (nth ilevel pointless-faces) 'pointless-face-further))
                                (faces (-repeat num-values face)))
                           ;;(message "level: %S,	num-keys: %S,	num-values: %S,	keys: %S" ilevel num-keys num-values keys)
+                          ;;(message "	positions: %S" values)
                           (let ((res (if (<= num-values num-keys)
                                          values
                                        (let ((position-partitions (funcall partition-fn values num-keys)))
+                                         (cl-check-type position-partitions (list-of (list-of number-or-marker)))
+                                         (cl-assert (<= (length position-partitions) num-keys) t)
                                          (seq-map (lambda (positions)
                                                     (if (length> positions 1)
-                                                        (descend (1+ ilevel) positions)
+                                                        (progn (mapc (lambda (p)
+                                                                       (cl-assert (number-or-marker-p p) t "%S" positions))
+                                                                     positions)
+                                                               (descend (1+ ilevel) positions))
                                                       (let ((position (car positions)))
-                                                        (cl-assert (number-or-marker-p position) t)
+                                                        (cl-check-type position number-or-marker)
                                                         position)))
                                                   position-partitions)))))
                             (-zip-lists keys faces res)))))
+
             (descend 0 positions))))
-    (cl-labels ((count-leafs (keys-faces-positions-nodes)
-                         (let ((values (caddr keys-faces-positions-nodes)))
-                           (if (pointless--tree-position-p values)
-                               1
-                             (cl-reduce #'+ (mapcar #'count-leafs values))))
-                         ))
-      ;;(cl-check-type keys-faces-positions-nodes (list-of number))
-      ;; (message "%S" keys-faces-positions-nodes)
+    (cl-check-type keys-faces-positions-nodes list)
+    (cl-labels ((count-leafs (key-face-positions)
+                             ;; (message "count-leafs %S" key-face-positions)
+                             (cl-assert (length= key-face-positions 3) t)
+                             (cl-destructuring-bind (key face values) key-face-positions
+                               (cl-check-type values (or list pointless--tree-position))
+                               (unless (pointless--tree-position-p values)
+                                 (mapc (lambda (val)
+                                         (cl-check-type val list)
+                                         (cl-check-type (car val) number)
+                                         (cl-check-type (cadr val) symbol)
+                                         (cl-check-type (caddr val) (or list pointless--tree-position)))
+                                       values))
+                               (if (pointless--tree-position-p values)
+                                   1
+                                 (cl-reduce #'+ (mapcar #'count-leafs values))))
+                             ))
+      ;;(cl-check-type key-face-positions (list-of number))
+      ;; (message "%S" key-face-positions)
       ;; (message "%S" positions)
-      (cl-assert (length= positions (cl-reduce #'+ (mapcar #'count-leafs keys-faces-positions-nodes))) nil "List lengths: %i %i" (count-leafs keys-faces-positions-nodes) (length positions)))
+      (let ((num-leafs (count-leafs (list ?a 'some-face keys-faces-positions-nodes))))
+        (cl-assert (length= positions num-leafs) nil "List lengths: %i %i" (length positions) num-leafs)))
     keys-faces-positions-nodes)
   )
 
@@ -474,6 +579,11 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
     )
   )
 
+(defun pointless-filter-position-due-to-text-properties (position)
+  (let ((invisible? (get-char-property position 'invisble)))
+    ;;(message "pointless-filter-position-due-to-text-properties: %i %S" position invisible?)
+    (eq nil invisible?)))
+
 
 ;; &key aren't working with &rest for some reason
 (cl-defmacro pointless-defjump-unidirectional (name &rest args)
@@ -505,9 +615,10 @@ candidates as the single argument and returns the list sorted.
       `(defun ,name ()
          (interactive)
          (let* ((,sort-fn (pointless-sort-candidates-function-default (quote ,name) ,(plist-get keyword-args :sort-fn)))
-                (,max-num-candidates ,(plist-get keyword-args :max-num-candidates))
-                (,keyset (pointless-keyset-default ',name ,(plist-get keyword-args :keyset)))
+                (,max-num-candidates ,(or (plist-get keyword-args :max-num-candidates) 999)) ;;use upper limit of 999 candidates if none given
+                (,keyset (pointless-keyset-default ',name pointless-jump-keysets ,(plist-get keyword-args :keyset)))
                 (,positions (pointless-save-window-start-and-mark-and-excursion ,@candidates-forms))
+                (,positions (-filter #'pointless-filter-position-due-to-text-properties ,positions))
                 (,positions (if ,sort-fn (funcall ,sort-fn ,positions) ,positions))
                 (,positions (if ,max-num-candidates (seq-take ,positions ,max-num-candidates) ,positions))
                 )
@@ -515,7 +626,7 @@ candidates as the single argument and returns the list sorted.
             ',name
             (pointless-make-jump-keys-unidirectional
              ;;keys
-             (car ,keyset)
+             ,keyset
              ;;positions
              ,positions
              ;;partition-fn
@@ -523,24 +634,27 @@ candidates as the single argument and returns the list sorted.
          )))
   )
 
-(let ((print-length 9999)
-      (print-level 99)
-      (eval-expression-print-level 99))
-  (prin1 (macroexpand-1 '(pointless-defjump-unidirectional pointless-jump-beginning-of-line-text
-                                  (progn (cons (point)
-                                               (pointless--collect-targets-iteratively
-                                                (apply-partially #'beginning-of-line-text 2)
-                                                :include-start-position t
-                                                :start-position-fn (lambda ()
-                                                                     (goto-char (window-start))
-                                                                     (beginning-of-line-text)
-                                                                     ))))))))
+;; (let ((print-length 9999)
+;;       (print-level 99)
+;;       (eval-expression-print-level 99))
+;;   (prin1 (macroexpand-1 '(pointless-defjump-unidirectional pointless-jump-beginning-of-line-text
+;;                                   (progn (cons (point)
+;;                                                (pointless--collect-targets-iteratively
+;;                                                 (apply-partially #'beginning-of-line-text 2)
+;;                                                 :include-start-position t
+;;                                                 :start-position-fn (lambda ()
+;;                                                                      (goto-char (window-start))
+;;                                                                      (beginning-of-line-text)
+;;                                                                      ))))))))
 
 
 
 (defun pointless-source-mark () (seq-uniq (--filter (and (/= it (point))
                                                          (>= it (window-start)) (< it (window-end)))
-                                                    (cons (mark) mark-ring))))
+                                                    (let ((marks (seq-filter #'marker-buffer mark-ring)))
+                                                      (if (not (eq (mark t) nil))
+                                                          (cons (mark) marks)
+                                                        marks)))))
 
 (pointless-defmove-unidirectional pointless-moveto-mark (pointless-source-mark))
 (pointless-defjump-unidirectional pointless-jump-mark
@@ -570,7 +684,9 @@ candidates as the single argument and returns the list sorted.
 
 (pointless-defjump-unidirectional pointless-jump-end-of-line
                                   (pointless--collect-targets-iteratively
-                                   (lambda () (end-of-line 2))
+                                   (lambda ()
+                                     (next-line)
+                                     (end-of-line))
                                    :include-start-position t
                                    :start-position-fn (lambda ()(goto-char (window-start))
                                                         (end-of-line))
@@ -599,13 +715,53 @@ candidates as the single argument and returns the list sorted.
   (unless (re-search-forward re nil t)
     (end-of-buffer)))
 
-(pointless-defjump-unidirectional pointless-jump-word-beginning (pointless-source- word-beginning))
+(pointless-defjump-unidirectional pointless-jump-word-beginning (pointless-source-word-beginning))
 
 (pointless-defjump-unidirectional pointless-jump-word-beginning-1
                                   (let ((char (pointless-helper-read-char-as-string "Word beginning character: ")))
                                     (seq-filter (apply-partially #'pointless-helper-buffer-looking-at-string char)
                                                 (pointless-source-word-beginning))
                                     ))
+
+(defun pointless-helper-read-char-timer (timeout prompt &rest format-args)
+  "Read a character, then read more characters in TIMEOUT seconds after that.
+
+PROMPT will be used as the prompt after format-args are applied to it using `format'."
+  (let ((prompt (apply #'format prompt format-args))
+        cancelled)
+    (let ((first-char (read-char prompt t))
+          (idle-timer (run-with-timer timeout nil (lambda () (setq cancelled t)))))
+      (let ((chars (cons first-char
+                         (cl-loop with char = nil
+                                  while (not cancelled)
+                                  do (setq char (read-char prompt t 0.05))
+                                  if char
+                                  collect char))))
+        (when chars
+          (s-join "" (mapcar #'char-to-string chars)))))))
+
+(defvar pointless-jump-char-timeout 0.75 "Timeout before pointless-jump-char-timeout stops reading input")
+
+(pointless-defjump-unidirectional
+ pointless-jump-char-timeout
+ (let ((chars (pointless-helper-read-char-timer pointless-jump-char-timeout "Goto characters before timeout: ")))
+   (if chars
+       (pointless--collect-targets-iteratively
+        (let (next-start)
+          (lambda (istep) (when next-start (goto-char next-start))
+            (prog1
+                (if (re-search-forward (regexp-quote chars) nil t)
+                    (progn
+                      (setq next-start (1+ (match-beginning 0)))
+                      (goto-char (match-beginning 0))
+                      )
+                  (end-of-buffer))
+              ;;(message "timout: %S %i %S %i" (point) (point-max) (< (point) (point-max)) istep)
+              )
+            ))
+        :start-position-fn (apply-partially #'goto-char (window-start)))
+     (user-error "input required.")))
+ )
 
 (pointless-defjump-unidirectional pointless-jump-char-1
                                   (let ((char (pointless-helper-read-char-as-string "Goto character: ")))
@@ -647,7 +803,16 @@ candidates as the single argument and returns the list sorted.
                                                        (end-of-buffer)))
                                      :start-position-fn (apply-partially #'goto-char (window-start)))))
 
-
+(pointless-defjump-unidirectional pointless-jump-sexp
+ (append
+  (pointless--collect-targets-iteratively
+   (lambda (istep)
+     (with-demoted-errors
+         (sp-forward-sexp))))
+  (pointless--collect-targets-iteratively
+   (lambda (istep)
+     (with-demoted-errors
+         (sp-backward-sexp))))))
 
 
 ;;(remove-overlays)
