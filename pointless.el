@@ -282,7 +282,7 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
         keys-overlays))
 
 
-(defun pointless--do-jump-no-user-options (keys-faces-positions-nodes compose-fn)
+(defun pointless--do-jump-no-user-options (keys-faces-positions-nodes compose-fn action-fn)
   "`COMMAND-NAME' is the name of the calling command."
   (unless keys-faces-positions-nodes
     (user-error "No valid jump targets."))
@@ -319,10 +319,7 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
                            (cl-assert chosen-item)
                            ;;(message "pointless-do-jump before next")
                            (if (pointless--tree-position-p chosen-item)
-                               (progn
-                                 (unless mark-active
-                                   (push-mark nil nil))
-                                 (goto-char chosen-item))
+                               (funcall action-fn chosen-item)
                              (read-level (1+ ilevel) prefix-keys chosen-item)))
                          )))
         (read-level 0 nil keys-faces-positions-nodes)))
@@ -330,13 +327,31 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
   (setq inhibit-quit nil))
 
 
-(defun pointless-do-jump (command-name keys-faces-positions-nodes &optional compose-fn)
+(defun pointless-action-jump (position)
+  "Unless the mark is active, save the mark and goto-char `position'."
+  (unless mark-active
+    (push-mark nil nil))
+  (goto-char position))
+
+(defvar pointless-action-default-function #'pointless-action-jump
+  "The action that is called when not overridden by jump specific defaults.
+See `pointless-action-jump' and `pointless--do-jump-no-user-options'.")
+(defvar pointless-action-function-alist nil "Define default
+action functions in an alist per command.")
+
+
+
+(defun pointless-do-jump (command-name keys-faces-positions-nodes &optional compose-fn action-fn)
   "`COMMAND-NAME' is the name of the calling command."
   (let ((compose-fn
          (or compose-fn
              (assq command-name pointless-compose-overlay-function-alist)
-             pointless-compose-overlay-default-function)))
-    (pointless--do-jump-no-user-options keys-faces-positions-nodes compose-fn)))
+             pointless-compose-overlay-default-function))
+        (action-fn
+         (or action-fn
+             (assq command-name pointless-action-function-alist)
+             pointless-action-default-function)))
+    (pointless--do-jump-no-user-options keys-faces-positions-nodes compose-fn action-fn)))
 
 
 (defun pointless-jump-chars-words-lines ()
