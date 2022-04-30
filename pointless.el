@@ -270,6 +270,15 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
       keyset)))
 
 
+(defun pointless--do-jump--check-overlays (keys-overlays)
+  (mapc (lambda (keys-overlays)
+          (cl-assert (number-or-marker-p (car keys-overlays)))
+          (cl-assert (cl-every #'number-or-marker-p (cadr keys-overlays)))
+          (cl-assert (cl-every #'listp (caddr keys-overlays)))
+          (mapc (lambda (overlays) (cl-assert (cl-every #'overlayp overlays) overlays))
+                (caddr keys-overlays)))
+        keys-overlays))
+
 
 (defun pointless--do-jump-no-user-options (keys-faces-positions-nodes compose-fn)
   "`COMMAND-NAME' is the name of the calling command."
@@ -281,47 +290,41 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
   (let (
         ;; save overlays globally so we can easily remove them on quit
         keys-overlays)
-    (cl-flet ((check-overlays (keys-overlays)
-                              (mapc (lambda (keys-overlays)
-                                      (cl-assert (number-or-marker-p (car keys-overlays)))
-                                      (cl-assert (cl-every #'number-or-marker-p (cadr keys-overlays)))
-                                      (cl-assert (cl-every #'listp (caddr keys-overlays)))
-                                      (mapc (lambda (overlays) (cl-assert (cl-every #'overlayp overlays) overlays))
-                                            (caddr keys-overlays)))
-                                    keys-overlays)))
-      (with-local-quit
-        (cl-labels
-            ((read-level (ilevel prefix-keys nodes)
-                         ;;(message "ilevel: %S,	prefix-keys: %S,	tree: %S" ilevel prefix-keys nodes)
-                         (setq keys-overlays (pointless--create-overlays nodes compose-fn))
-                         ;;(message "%S" keys-overlays)
-                         ;;(check-overlays keys-overlays)
+    (with-local-quit
+      (cl-labels
+          ((read-level (ilevel prefix-keys nodes)
+                       "Read the `ilevel'-th level of the jump tree.
 
-                         (let* ((keys (mapcar #'car nodes))
-                                (key (read-char-choice-with-read-key (format "Jump to target: (%s) [%i, %i, %i, %i]"
-                                                                             (s-join "" (--map (char-to-string it) keys))
-                                                                             (point) (window-start) (window-end)
-                                                                             (overlay-start (car (last keys-overlays))))
-                                                                     keys))
-                                (ikey (seq-position keys key))
-                                ;;(overlays (seq-elt overlays ikey))
-                                ;;(pos (overlay-start (car overlays)))
-                                (prefix-keys (cons key prefix-keys)))
-                           (pointless-target-hide keys-overlays)
+`prefix-keys' are the previosly pressed keys if any.
+`keys-treenodes'."
+                       ;;(message "ilevel: %S,	prefix-keys: %S,	tree: %S" ilevel prefix-keys nodes)
+                       (setq keys-overlays (pointless--create-overlays nodes compose-fn))
+                       ;;(message "%S" keys-overlays)
+                       ;;(check-overlays keys-overlays)
 
-                           (let ((chosen-item (caddr (nth ikey nodes))))
-                             (cl-assert chosen-item)
-                             ;;(message "pointless-do-jump before next")
-                             (if (pointless--tree-position-p chosen-item)
-                                 (progn
-                                   (unless mark-active
-                                     (push-mark nil nil))
-                                   (goto-char chosen-item))
-                               (read-level (1+ ilevel) prefix-keys chosen-item)))
-                           )))
-          (read-level 0 nil keys-faces-positions-nodes))
-        )
-      )
+                       (let* ((keys (mapcar #'car nodes))
+                              (key (read-char-choice-with-read-key (format "Jump to target: (%s) [%i, %i, %i, %i]"
+                                                                           (s-join "" (--map (char-to-string it) keys))
+                                                                           (point) (window-start) (window-end)
+                                                                           (overlay-start (car (last keys-overlays))))
+                                                                   keys))
+                              (ikey (seq-position keys key))
+                              ;;(overlays (seq-elt overlays ikey))
+                              ;;(pos (overlay-start (car overlays)))
+                              (prefix-keys (cons key prefix-keys)))
+                         (pointless-target-hide keys-overlays)
+
+                         (let ((chosen-item (caddr (nth ikey nodes))))
+                           (cl-assert chosen-item)
+                           ;;(message "pointless-do-jump before next")
+                           (if (pointless--tree-position-p chosen-item)
+                               (progn
+                                 (unless mark-active
+                                   (push-mark nil nil))
+                                 (goto-char chosen-item))
+                             (read-level (1+ ilevel) prefix-keys chosen-item)))
+                         )))
+        (read-level 0 nil keys-faces-positions-nodes)))
     (pointless-target-hide keys-overlays))
   (setq inhibit-quit nil))
 
