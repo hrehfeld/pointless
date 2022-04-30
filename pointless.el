@@ -178,7 +178,7 @@ list like `((POSITION KEY-SEQUENCE (OVERLAY ...) (OVERLAY ...) ...) ...)'"
   (cl-assert (equal (mapcar #'car keys-faces-positions-nodes) (seq-uniq (mapcar #'car keys-faces-positions-nodes))))
   ;;(message "pointless--create-overlays %S" keys-faces-positions-nodes)
   (let* ((positions-prefix-keys (seq-mapcat #'pointless--get-position-prefix-keys keys-faces-positions-nodes))
-         (positions-prefix-keys (cl-sort positions-prefix-keys #'< :key #'car))
+         (positions-prefix-keys (cl-stable-sort positions-prefix-keys #'< :key #'car))
          )
     (apply #'seq-concatenate 'list
            (let ((tail (cdr positions-prefix-keys)))
