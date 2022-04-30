@@ -1,4 +1,4 @@
-;; -*- lexical-binding: t; -*-
+;; -*- lexical-binding: t; eval: (aggressive-indent-mode); -*-
 
 
 (defface pointless-target `((t . (:foreground "white" :background "#892E8B"))) "Generic face for a pointless jump target.")
