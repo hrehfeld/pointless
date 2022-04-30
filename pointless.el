@@ -305,10 +305,9 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
                        ;;(check-overlays keys-overlays)
 
                        (let* ((keys (mapcar #'car nodes))
-                              (key (read-char-choice-with-read-key (format "Jump to target: (%s) [%i, %i, %i, %i]"
+                              (key (read-char-choice-with-read-key (format "Jump to target: (%s)"
                                                                            (s-join "" (--map (char-to-string it) keys))
-                                                                           (point) (window-start) (window-end)
-                                                                           (overlay-start (car (last keys-overlays))))
+                                                                           )
                                                                    keys))
                               (ikey (seq-position keys key))
                               ;;(overlays (seq-elt overlays ikey))
