@@ -53,6 +53,7 @@ pointless will use these list to build keys relative to point, each list element
 
 ;; TODO: add other rows as lists of characters
 (defvar pointless-jump-keysets '((?a ?s ?d ?f ?g ?h ?j ?k ?l ?\;)))
+(defvar pointless-action-keyset '(?w ?e ?i ?o))
 
 (defvar pointless-faces '(pointless-target-1 pointless-target-2
                                              pointless-target-3
@@ -282,7 +283,7 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
         keys-overlays))
 
 
-(defun pointless--do-jump-no-user-options (keys-faces-positions-nodes compose-fn action-fn)
+(defun pointless--do-jump-no-user-options (keys-faces-positions-nodes keys-actions compose-fn action-fn)
   "`COMMAND-NAME' is the name of the calling command."
   (unless keys-faces-positions-nodes
     (user-error "No valid jump targets."))
@@ -304,24 +305,38 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
                        ;;(message "%S" keys-overlays)
                        ;;(check-overlays keys-overlays)
 
-                       (let* ((keys (mapcar #'car nodes))
-                              (key (read-char-choice-with-read-key (format "Jump to target: (%s)"
-                                                                           (s-join "" (--map (char-to-string it) keys))
-                                                                           )
-                                                                   keys))
-                              (ikey (seq-position keys key))
-                              ;;(overlays (seq-elt overlays ikey))
-                              ;;(pos (overlay-start (car overlays)))
-                              (prefix-keys (cons key prefix-keys)))
-                         (pointless-target-hide keys-overlays)
-
-                         (let ((chosen-item (caddr (nth ikey nodes))))
-                           (cl-assert chosen-item)
-                           ;;(message "pointless-do-jump before next")
-                           (if (pointless--tree-position-p chosen-item)
-                               (funcall action-fn chosen-item)
-                             (read-level (1+ ilevel) prefix-keys chosen-item)))
-                         )))
+                       ;; loop while key was selecting an action instead of walking the tree
+                       (let (position-read)
+                         (while (not position-read)
+                           (let* ((keys (mapcar #'car nodes))
+                                  (action-keys (mapcar #'car keys-actions))
+                                  (key (read-char-choice-with-read-key (format "%s to target: (%s) or action [%s]"
+                                                                               (let ((verb (alist-get action-fn pointless-action-functions)))
+                                                                                 (if verb
+                                                                                     (s-capitalize verb)
+                                                                                   (format "[error: check pointless-action-functions for %S]" action-fn)))
+                                                                               (s-join "" (--map (char-to-string it) keys))
+                                                                               (s-join "" (--map (char-to-string it) action-keys))
+                                                                               )
+                                                                       (seq-concatenate 'list keys action-keys)))
+                                  )
+                             (message "%S %S" key action-keys)
+                             (if (member key action-keys)
+                                 (progn (cl-assert (not (member key keys)) nil "Overlapping keys: action-keys: %S and position-keys: %S" action-keys keys)
+                                        (let ((ikey (seq-position action-keys key)))
+                                          (setq action-fn (cadr (nth ikey keys-actions)))
+                                          (message "setting action-fn to %s" action-fn)))
+                               (let* ((ikey (seq-position keys key))
+                                      (prefix-keys (cons key prefix-keys)))
+                                 (setq position-read t)
+                                 (pointless-target-hide keys-overlays)
+                                 (let ((chosen-item (caddr (nth ikey nodes))))
+                                   (cl-assert chosen-item)
+                                   ;;(message "pointless-do-jump before next")
+                                   (if (pointless--tree-position-p chosen-item)
+                                       (funcall action-fn chosen-item)
+                                     (read-level (1+ ilevel) prefix-keys chosen-item)))))
+                             )))))
         (read-level 0 nil keys-faces-positions-nodes)))
     (pointless-target-hide keys-overlays))
   (setq inhibit-quit nil))
@@ -333,15 +348,36 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
     (push-mark nil nil))
   (goto-char position))
 
+(defun pointless-action-recenter-top-bottom (position)
+  "Recenter window using `recenter-top-bottom' around `position'."
+  (save-excursion
+    (goto-char position)
+    (recenter-top-bottom)))
+
+
 (defvar pointless-action-default-function #'pointless-action-jump
   "The action that is called when not overridden by jump specific defaults.
 See `pointless-action-jump' and `pointless--do-jump-no-user-options'.")
 (defvar pointless-action-function-alist nil "Define default
 action functions in an alist per command.")
 
+(defvar pointless-action-functions
+  '((pointless-action-jump . "jump")
+    (pointless-action-recenter-top-bottom . "recenter"))
+  "Alist of actions that may be called after candidate selection.
+
+Each element is a cons cell `(action . verb)', where action is a
+function symbol and verb is a string put into the candidate
+selection prompt.
+
+Each function takes the position as its only argument. See
+`pointless-action-jump'.")
+
+(defvar pointless-action-function-alist nil "Define default action functions in an alist per command.")
 
 
-(defun pointless-do-jump (command-name keys-faces-positions-nodes &optional compose-fn action-fn)
+
+(defun pointless-do-jump (command-name keys-faces-positions-nodes &optional compose-fn action-fn keys-actions)
   "`COMMAND-NAME' is the name of the calling command."
   (let ((compose-fn
          (or compose-fn
@@ -350,8 +386,12 @@ action functions in an alist per command.")
         (action-fn
          (or action-fn
              (assq command-name pointless-action-function-alist)
-             pointless-action-default-function)))
-    (pointless--do-jump-no-user-options keys-faces-positions-nodes compose-fn action-fn)))
+             pointless-action-default-function))
+        (keys-actions
+         (or keys-actions
+             (assq command-name pointless-action-function-alist)
+             (-zip-lists pointless-action-keyset (mapcar #'car pointless-action-functions)))))
+    (pointless--do-jump-no-user-options keys-faces-positions-nodes keys-actions compose-fn action-fn)))
 
 
 (defun pointless-jump-chars-words-lines ()
