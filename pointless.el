@@ -186,7 +186,7 @@ list like `((POSITION KEY-SEQUENCE (OVERLAY ...) (OVERLAY ...) ...) ...)'"
               for (position prefix-keys) in positions-prefix-keys
               ;; only place overlay on a single char, so we only take buffer-substring of length 1
               collect
-              (let* ((next-position (if tail (caar tail) nil)))
+              (let* ((next-position (when tail (caar tail))))
                 (cl-check-type position number-or-marker)
                 (cl-check-type next-position (or null number-or-marker))
                 (when tail
