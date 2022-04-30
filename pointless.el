@@ -175,7 +175,9 @@ pointless will use these list to build keys relative to point, each list element
   "Create overlays from the `KEYS-FACES-POSITIONS-NODES' and return an
 list like `((POSITION KEY-SEQUENCE (OVERLAY ...) (OVERLAY ...) ...) ...)'"
   (cl-assert (equal keys-faces-positions-nodes (seq-uniq keys-faces-positions-nodes)) t)
-  (cl-assert (equal (mapcar #'car keys-faces-positions-nodes) (seq-uniq (mapcar #'car keys-faces-positions-nodes))))
+  ;; no unique keys
+  (let ((keys (mapcar #'car keys-faces-positions-nodes)))
+    (cl-assert (equal keys (seq-uniq keys))))
   ;;(message "pointless--create-overlays %S" keys-faces-positions-nodes)
   (let* ((positions-prefix-keys (seq-mapcat #'pointless--get-position-prefix-keys keys-faces-positions-nodes))
          (positions-prefix-keys (cl-stable-sort positions-prefix-keys #'< :key #'car))
