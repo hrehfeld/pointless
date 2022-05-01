@@ -363,8 +363,8 @@ See `pointless-push-mark'.")
     (recenter-top-bottom)))
 
 (defun pointless-action-pointless-jump-sexp (position)
-  "From `position', jump using `pointless-jump-sexp'."
-  (pointless-push-mark #'pointless-action-jump)
+  "From `position', jump again using `pointless-jump-sexp'."
+  (pointless-push-mark)
   (goto-char position)
   (call-interactively #'pointless-jump-sexp t))
 
