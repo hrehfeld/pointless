@@ -310,7 +310,7 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
                          (while (not position-read)
                            (let* ((keys (mapcar #'car nodes))
                                   (action-keys (mapcar #'car keys-actions))
-                                  (key (read-char-choice-with-read-key (format "%s to target: (%s) or action [%s]"
+                                  (key (read-char-choice-with-read-key (format "%s: (%s) or action [%s]"
                                                                                (let ((verb (alist-get action-fn pointless-action-functions)))
                                                                                  (if verb
                                                                                      (s-capitalize verb)
@@ -375,8 +375,9 @@ See `pointless-action-jump' and `pointless--do-jump-no-user-options'.")
 action functions in an alist per command.")
 
 (defvar pointless-action-functions
-  '((pointless-action-jump . "jump")
-    (pointless-action-recenter-top-bottom . "recenter"))
+  '((pointless-action-jump . "jump to")
+    (pointless-action-recenter-top-bottom . "recenter around")
+    (pointless-action-pointless-jump-sexp . "jump sexp from"))
   "Alist of actions that may be called after candidate selection.
 
 Each element is a cons cell `(action . verb)', where action is a
