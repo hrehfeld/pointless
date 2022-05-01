@@ -362,6 +362,11 @@ See `pointless-push-mark'.")
     (goto-char position)
     (recenter-top-bottom)))
 
+(defun pointless-action-pointless-jump-sexp (position)
+  "From `position', jump using `pointless-jump-sexp'."
+  (pointless-push-mark #'pointless-action-jump)
+  (goto-char position)
+  (call-interactively #'pointless-jump-sexp t))
 
 (defvar pointless-action-default-function #'pointless-action-jump
   "The action that is called when not overridden by jump specific defaults.
