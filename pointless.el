@@ -341,11 +341,19 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
     (pointless-target-hide keys-overlays))
   (setq inhibit-quit nil))
 
+(defvar pointless-this-command nil "For recursive pointless
+command calls via actions, save the current jump command.
+
+See `pointless-push-mark'.")
+
+(defun pointless-push-mark ()
+  "Save the mark if it is active and we're not inside a recursive pointless jump. See `pointless-this-command'."
+  (unless (or mark-active (eq this-command pointless-this-command))
+    (push-mark nil nil)))
 
 (defun pointless-action-jump (position)
   "Unless the mark is active, save the mark and goto-char `position'."
-  (unless mark-active
-    (push-mark nil nil))
+  (pointless-push-mark)
   (goto-char position))
 
 (defun pointless-action-recenter-top-bottom (position)
@@ -391,6 +399,7 @@ Each function takes the position as its only argument. See
          (or keys-actions
              (assq command-name pointless-action-function-alist)
              (-zip-lists pointless-action-keyset (mapcar #'car pointless-action-functions)))))
+    (setq pointless-this-command command-name)
     (pointless--do-jump-no-user-options keys-faces-positions-nodes keys-actions compose-fn action-fn)))
 
 
