@@ -704,6 +704,7 @@ candidates as the single argument and returns the list sorted.
                 (,max-num-candidates ,(or (plist-get keyword-args :max-num-candidates) 999)) ;;use upper limit of 999 candidates if none given
                 (,keyset (pointless-keyset-default ',name pointless-jump-keysets ,(plist-get keyword-args :keyset)))
                 (,positions (pointless-save-window-start-and-mark-and-excursion ,@candidates-forms))
+                (,positions (seq-uniq ,positions))
                 (,positions (-filter #'pointless-filter-position-due-to-text-properties ,positions))
                 (,positions (if ,sort-fn (funcall ,sort-fn ,positions) ,positions))
                 (,positions (if ,max-num-candidates (seq-take ,positions ,max-num-candidates) ,positions))
