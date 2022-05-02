@@ -365,7 +365,7 @@ See `pointless-push-mark'.")
   "`yank' at `position'."
   (save-excursion
     (goto-char position)
-    (call-interactively yank)))
+    (call-interactively #'yank)))
 
 (defun pointless-action-recenter-top-bottom (position)
   "Recenter window using `recenter-top-bottom' around `position'."
