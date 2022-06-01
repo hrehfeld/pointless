@@ -361,6 +361,12 @@ See `pointless-push-mark'.")
   (pointless-push-mark)
   (goto-char (1+ position)))
 
+(defun pointless-action-yank (position)
+  "`yank' at `position'."
+  (save-excursion
+    (goto-char position)
+    (call-interactively yank)))
+
 (defun pointless-action-recenter-top-bottom (position)
   "Recenter window using `recenter-top-bottom' around `position'."
   (save-excursion
@@ -383,7 +389,8 @@ action functions in an alist per command.")
   '((pointless-action-jump . "jump to")
     (pointless-action-jump-behind . "jump behind")
     (pointless-action-recenter-top-bottom . "recenter around")
-    (pointless-action-pointless-jump-sexp . "jump sexp from"))
+    (pointless-action-pointless-jump-sexp . "jump sexp from")
+    (pointless-action-yank . "yank at"))
   "Alist of actions that may be called after candidate selection.
 
 Each element is a cons cell `(action . verb)', where action is a
