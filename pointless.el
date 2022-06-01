@@ -356,6 +356,11 @@ See `pointless-push-mark'.")
   (pointless-push-mark)
   (goto-char position))
 
+(defun pointless-action-jump-behind (position)
+  "Unless the mark is active, save the mark and goto-char `position' + 1."
+  (pointless-push-mark)
+  (goto-char (1+ position)))
+
 (defun pointless-action-recenter-top-bottom (position)
   "Recenter window using `recenter-top-bottom' around `position'."
   (save-excursion
@@ -376,6 +381,7 @@ action functions in an alist per command.")
 
 (defvar pointless-action-functions
   '((pointless-action-jump . "jump to")
+    (pointless-action-jump-behind . "jump behind")
     (pointless-action-recenter-top-bottom . "recenter around")
     (pointless-action-pointless-jump-sexp . "jump sexp from"))
   "Alist of actions that may be called after candidate selection.
