@@ -47,6 +47,8 @@
   (cl-assert (listp overlays))
   (mapc #'delete-overlay overlays))
 
+(defvar pointless-last-search-input nil)
+(defvar pointless-repeat-command nil)
 (defvar pointless-last-jump-args nil)
 
 (defvar pointless-keys '(("asdfghjkl;'" . ?h) ("qwertyuiop" . ?y) ("zxcvbnm,." . ?b) ("1234567890" . ?6)) "A list of strings of keys that are used as jump keys.
@@ -686,6 +688,26 @@ Each function takes the position as its only argument. See
     (eq nil invisible?)))
 
 
+(defun pointless-defjump--clean-positions (positions sort-fn max-num-candidates)
+  (let* ((positions (seq-uniq positions))
+         (positions (-filter #'pointless-filter-position-due-to-text-properties positions))
+         (positions (-filter (apply-partially #'/= (point)) positions))
+         (positions (if sort-fn (funcall sort-fn positions) positions))
+         (positions (if max-num-candidates (seq-take positions max-num-candidates) positions)))
+    positions))
+
+(defun pointless-defjump-do-jump (name keyset search-input candidates-fn sort-fn partition-fn max-num-candidates)
+  (let* ((positions (funcall candidates-fn search-input))
+         (positions (pointless-defjump--clean-positions positions sort-fn max-num-candidates)))
+    ;;(message "pointless-defjump-do-jump: %S %S" candidates-fn positions)
+    (pointless-do-jump
+     name
+     (pointless-make-jump-keys-unidirectional
+      keyset
+      positions
+      (pointless-partition-candidates-function-default name partition-fn)))))
+
+
 ;; &key aren't working with &rest for some reason
 (cl-defmacro pointless-defjump-unidirectional (name &rest args)
   "Define a jump command conveniently.
@@ -712,36 +734,29 @@ candidates as the single argument and returns the list sorted.
   (cl-destructuring-bind (candidates-forms keyword-args)
       (pointless--normalize-keyword-arguments-with-rest '(:sort-fn :partition-fn :max-num-candidates :keyset :search-input) args)
     ;;(message "%S" keyword-args)
-    (let ((search (gensym 'search))
-          (positions (gensym 'positions))
+    (let ((positions (gensym 'positions))
           (max-num-candidates (gensym 'max-num-candidates))
           (sort-fn (gensym 'sort-fn))
+          (partition-fn (gensym 'partition-fn))
           (keyset (gensym 'keyset)))
       `(defun ,name ()
          (interactive)
-         (let* ((,sort-fn (pointless-sort-candidates-function-default (quote ,name) ,(plist-get keyword-args :sort-fn)))
+         (let* ((,sort-fn (pointless-sort-candidates-function-default (quote ,name) ',(plist-get keyword-args :sort-fn)))
+                (,partition-fn ,(plist-get keyword-args :partition-fn))
                 (,max-num-candidates ,(or (plist-get keyword-args :max-num-candidates) 999)) ;;use upper limit of 999 candidates if none given
                 (,keyset (pointless-keyset-default ',name pointless-jump-keysets ,(plist-get keyword-args :keyset)))
-                (,search ,(plist-get keyword-args :search-input))
-                (,positions (pointless-save-window-start-and-mark-and-excursion
-                             (let ((search-input ,search))
-                               ,@candidates-forms)))
-                (,positions (seq-uniq ,positions))
-                (,positions (-filter #'pointless-filter-position-due-to-text-properties ,positions))
-                (,positions (if ,sort-fn (funcall ,sort-fn ,positions) ,positions))
-                (,positions (if ,max-num-candidates (seq-take ,positions ,max-num-candidates) ,positions))
                 )
-           (if ,positions
-               (pointless-do-jump
-                ',name
-                (pointless-make-jump-keys-unidirectional
-                 ;;keys
-                 ,keyset
-                 ;;positions
-                 ,positions
-                 ;;partition-fn
-                 (pointless-partition-candidates-function-default ',name ,(plist-get keyword-args :partition-fn))))
-             ))))))
+           (setq pointless-last-search-input ,(plist-get keyword-args :search-input))
+           (setq pointless-repeat-command (list 'pointless-defjump-do-jump
+                                                ',name
+                                                ,keyset
+                                                pointless-last-search-input
+                                                (lambda (search-input) (pointless-save-window-start-and-mark-and-excursion
+                                                                        ,@candidates-forms))
+                                                ,sort-fn
+                                                ,partition-fn
+                                                ,max-num-candidates))
+           (apply (car pointless-repeat-command) (cdr pointless-repeat-command)))))))
 
 ;; (let ((print-length 9999)
 ;;       (print-level 99)
