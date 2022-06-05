@@ -791,7 +791,8 @@ candidates as the single argument and returns the list sorted.
                                    :include-start-position t
                                    :start-position-fn (lambda ()(goto-char (window-start))
                                                         (end-of-line))
-                                         ))
+                                   )
+                                  :sort-fn pointless-sort-candidates-before-after-point)
 
 (defun pointless-source-word-beginning ()
   (nreverse (pointless--collect-targets-iteratively
