@@ -680,6 +680,9 @@ Each function takes the position as its only argument. See
 `ARGS' consists of KEYWORDS and `&rest'.
 `&rest' is a function body that returns a list of candidate positions.
 
+`:search-input' is a form that queries the user for input and
+returns that input.
+
 `:MAX-NUM-CANDIDATES' is the maximum number of candidates. This
 is applied *after* sorting.
 
@@ -692,34 +695,38 @@ candidates as the single argument and returns the list sorted.
 `pointless-make-jump-keys-unidirectional'.
 "
   (cl-destructuring-bind (candidates-forms keyword-args)
-      (pointless--normalize-keyword-arguments-with-rest '(:sort-fn :partition-fn :max-num-candidates :keyset) args)
+      (pointless--normalize-keyword-arguments-with-rest '(:sort-fn :partition-fn :max-num-candidates :keyset :search-input) args)
     ;;(message "%S" keyword-args)
-    (let ((positions (gensym))
-          (max-num-candidates (gensym))
+    (let ((search (gensym 'search))
+          (positions (gensym 'positions))
+          (max-num-candidates (gensym 'max-num-candidates))
           (sort-fn (gensym 'sort-fn))
-          (keyset (gensym)))
+          (keyset (gensym 'keyset)))
       `(defun ,name ()
          (interactive)
          (let* ((,sort-fn (pointless-sort-candidates-function-default (quote ,name) ,(plist-get keyword-args :sort-fn)))
                 (,max-num-candidates ,(or (plist-get keyword-args :max-num-candidates) 999)) ;;use upper limit of 999 candidates if none given
                 (,keyset (pointless-keyset-default ',name pointless-jump-keysets ,(plist-get keyword-args :keyset)))
-                (,positions (pointless-save-window-start-and-mark-and-excursion ,@candidates-forms))
+                (,search ,(plist-get keyword-args :search-input))
+                (,positions (pointless-save-window-start-and-mark-and-excursion
+                             (let ((search-input ,search))
+                               ,@candidates-forms)))
                 (,positions (seq-uniq ,positions))
                 (,positions (-filter #'pointless-filter-position-due-to-text-properties ,positions))
                 (,positions (if ,sort-fn (funcall ,sort-fn ,positions) ,positions))
                 (,positions (if ,max-num-candidates (seq-take ,positions ,max-num-candidates) ,positions))
                 )
-           (pointless-do-jump
-            ',name
-            (pointless-make-jump-keys-unidirectional
-             ;;keys
-             ,keyset
-             ;;positions
-             ,positions
-             ;;partition-fn
-             (pointless-partition-candidates-function-default ',name ,(plist-get keyword-args :partition-fn)))))
-         )))
-  )
+           (if ,positions
+               (pointless-do-jump
+                ',name
+                (pointless-make-jump-keys-unidirectional
+                 ;;keys
+                 ,keyset
+                 ;;positions
+                 ,positions
+                 ;;partition-fn
+                 (pointless-partition-candidates-function-default ',name ,(plist-get keyword-args :partition-fn))))
+             ))))))
 
 ;; (let ((print-length 9999)
 ;;       (print-level 99)
@@ -831,34 +838,30 @@ PROMPT will be used as the prompt after format-args are applied to it using `for
 
 (pointless-defjump-unidirectional
  pointless-jump-char-timeout
- (let ((chars (pointless-helper-read-char-timer pointless-jump-char-timeout "Goto characters before timeout: ")))
-   (if chars
-       (pointless--collect-targets-iteratively
-        (let (next-start)
-          (lambda (istep) (when next-start (goto-char next-start))
-            (prog1
-                (if (re-search-forward (regexp-quote chars) nil t)
-                    (progn
-                      (setq next-start (1+ (match-beginning 0)))
-                      (goto-char (match-beginning 0))
-                      )
-                  (end-of-buffer))
-              ;;(message "timout: %S %i %S %i" (point) (point-max) (< (point) (point-max)) istep)
-              )
-            ))
-        :start-position-fn (apply-partially #'goto-char (window-start)))
-     (user-error "input required.")))
- )
+ (pointless--collect-targets-iteratively
+  (let (next-start)
+    (lambda (istep) (when next-start (goto-char next-start))
+      (prog1
+          (if (re-search-forward (regexp-quote search-input) nil t)
+              (progn
+                (setq next-start (1+ (match-beginning 0)))
+                (goto-char (match-beginning 0))
+                )
+            (end-of-buffer))
+        ;;(message "timout: %S %i %S %i" (point) (point-max) (< (point) (point-max)) istep)
+        )))
+  :start-position-fn (apply-partially #'goto-char (window-start)))
+ :search-input (pointless-helper-read-char-timer pointless-jump-char-timeout "Goto characters before timeout: "))
 
 (pointless-defjump-unidirectional pointless-jump-char-1
                                   (let ((char (pointless-helper-read-char-as-string "Goto character: ")))
                                     (mapcar #'1-
-                                              (pointless--collect-targets-iteratively
-                                               (lambda (istep) (unless (re-search-forward (regexp-quote char) nil t)
-                                                                 (end-of-buffer))
-                                                 ;;(message "%S %i %S %i" (point) (point-max) (< (point) (point-max)) istep)
-                                                 )
-                                               :start-position-fn (apply-partially #'goto-char (window-start))))
+                                            (pointless--collect-targets-iteratively
+                                             (lambda (istep) (unless (re-search-forward (regexp-quote char) nil t)
+                                                               (end-of-buffer))
+                                               ;;(message "%S %i %S %i" (point) (point-max) (< (point) (point-max)) istep)
+                                               )
+                                             :start-position-fn (apply-partially #'goto-char (window-start))))
                                     ))
 
 (pointless-defjump-unidirectional pointless-jump-char-line-1
