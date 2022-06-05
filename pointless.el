@@ -167,7 +167,7 @@ pointless will use these list to build keys relative to point, each list element
                       (buffer-substring position (+ position overlay-length))
                     ""))
          (str (funcall (or compose-fn #'concat) str old-str)))
-      (pointless-target-show position overlay-length str)))
+    (pointless-target-show position overlay-length str)))
 
 (defun pointless--tree-position-p (node) (number-or-marker-p node))
 
@@ -644,7 +644,7 @@ Each function takes the position as its only argument. See
           (end-of-line)
         ;; move down a line
         (end-of-line 2))))
-  ))
+   ))
 
 
 
@@ -656,12 +656,12 @@ Each function takes the position as its only argument. See
        (let* ((,positions (progn ,@positions-form)))
          (pointless-do-jump
           ',name
-           (-zip
-            ;;keys
-            (car (pointless-get-keys-unidirectional))
-            ;;faces
-            (-repeat (length ,positions) 'pointless-target)
-            ,positions)))
+          (-zip
+           ;;keys
+           (car (pointless-get-keys-unidirectional))
+           ;;faces
+           (-repeat (length ,positions) 'pointless-target)
+           ,positions)))
        ))
   )
 
@@ -812,7 +812,8 @@ candidates as the single argument and returns the list sorted.
                                      (next-line)
                                      (end-of-line))
                                    :include-start-position t
-                                   :start-position-fn (lambda ()(goto-char (window-start))
+                                   :start-position-fn (lambda ()
+                                                        (goto-char (window-start))
                                                         (end-of-line))
                                    )
                                   :sort-fn pointless-sort-candidates-before-after-point)
