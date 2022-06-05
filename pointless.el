@@ -47,6 +47,7 @@
   (cl-assert (listp overlays))
   (mapc #'delete-overlay overlays))
 
+(defvar pointless-last-jump-args nil)
 (defvar pointless-keys '(("asdfghjkl;'" . ?h) ("qwertyuiop" . ?y) ("zxcvbnm,." . ?b) ("1234567890" . ?6)) "A list of strings of keys that are used as jump keys.
 
 pointless will use these list to build keys relative to point, each list element (a list of keys) will be assigned to one category of jumps.")
@@ -426,7 +427,13 @@ Each function takes the position as its only argument. See
              (assq command-name pointless-action-function-alist)
              (-zip-lists pointless-action-keyset (mapcar #'car pointless-action-functions)))))
     (setq pointless-this-command command-name)
-    (pointless--do-jump-no-user-options keys-faces-positions-nodes keys-actions compose-fn action-fn)))
+    (let ((args (list keys-faces-positions-nodes keys-actions compose-fn action-fn)))
+      (setq pointless-last-jump-args args)
+      (apply #'pointless--do-jump-no-user-options args))))
+
+(defun pointless-resume ()
+  (interactive)
+  (apply #'pointless--do-jump-no-user-options pointless-last-jump-args))
 
 
 (defun pointless-jump-chars-words-lines ()
