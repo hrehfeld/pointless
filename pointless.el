@@ -132,6 +132,13 @@ pointless will use these list to build keys relative to point, each list element
                                          ((apply #'= distances) (apply #'< signed-distances)))))
                     :key (lambda (pos) (- pos point)))))
 
+(defun pointless-sort-candidates-before-after-point (candidates)
+  (let ((point (point)))
+    (apply #'-interleave (mapcar (lambda (fn)
+                                   (--> (--filter (funcall fn it point) candidates)
+                                        (cl-stable-sort it #'< :key (lambda (pos) (abs (- pos point))))))
+                                 '(< >=)))))
+
 
 (defun pointless--show-keys (keys-faces position next-position &optional compose-fn)
   (let* ((num-keys (length keys-faces))
