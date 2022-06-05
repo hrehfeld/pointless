@@ -1,5 +1,6 @@
 ;; -*- lexical-binding: t; eval: (aggressive-indent-mode); -*-
 
+(require 'dash)
 
 (defface pointless-target `((t . (:foreground "white" :background "#892E8B"))) "Generic face for a pointless jump target.")
 (defface pointless-target-1 `((t . (:inherit pointless-target))) "First face for pointless jump targets.")
