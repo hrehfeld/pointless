@@ -48,6 +48,7 @@
   (mapc #'delete-overlay overlays))
 
 (defvar pointless-last-jump-args nil)
+
 (defvar pointless-keys '(("asdfghjkl;'" . ?h) ("qwertyuiop" . ?y) ("zxcvbnm,." . ?b) ("1234567890" . ?6)) "A list of strings of keys that are used as jump keys.
 
 pointless will use these list to build keys relative to point, each list element (a list of keys) will be assigned to one category of jumps.")
