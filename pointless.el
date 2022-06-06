@@ -368,10 +368,10 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
                                                    (setq pointless-last-select-keys prefix-keys
                                                          pointless-last-action-fn action-fn)
                                                    (let ((res (funcall action-fn chosen-item)))
-                                                     (message "pointless--select %S %S" (or res chosen-item) res)
+                                                     ;; (message "pointless--select %S %S" (or res chosen-item) res)
                                                      (or res chosen-item)))
                                                (let ((res (read-level (1+ ilevel) prefix-keys chosen-item)))
-                                                 (message "pointless--select %S" res)
+                                                 ;; (message "pointless--select %S" res)
                                                  res))))))))
                              position-read)))
             (read-level 0 nil keys-faces-positions-nodes)))
