@@ -772,7 +772,7 @@ Each function takes the position as its only argument. See
             pointless-last-command-args (list name keyset candidates-fn sort-fn partition-fn max-num-candidates)
             pointless-resume-command 'pointless--jump-select
             pointless-last-search-input (when search-input-fn (funcall search-input-fn)))
-      (pointless--jump-select name keyset candidates-fn sort-fn partition-fn max-num-candidates))))
+      (apply #'pointless--jump-select pointless-last-command-args))))
 
 
 ;; &key aren't working with &rest for some reason
