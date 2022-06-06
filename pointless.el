@@ -936,17 +936,19 @@ PROMPT will be used as the prompt after format-args are applied to it using `for
 
 (pointless-defjump-unidirectional
  pointless-jump-char-timeout
- (pointless-save-window-start-and-mark-and-excursion
-  (goto-char (window-start))
-  (cl-loop while (re-search-forward (regexp-quote search-input) (window-end) t)
-           ;; do
-           ;; (message "timout: (progn(goto-char %S) (re-search-forward (regexp-quote \"%s\")
-           ;; (window-end) (quote foo))) %i %S" (point) search-input (window-start) (window-end)
-           ;; )
-           collect
-           (let ((pos (match-beginning 0)))
-             (goto-char (1+ pos))
-             pos)))
+ (goto-char (window-start))
+ (cl-loop
+  while (re-search-forward (regexp-quote search-input) (window-end) t)
+  ;; do
+  ;; (message "timeout: (progn (goto-char %S) (re-search-forward (regexp-quote \"%s\") (window-end) t))
+  ;; %i %i %i %i" i  search-input (match-beginning 0) (point) (window-start) (window-end)
+  ;; )
+  collect
+  (match-beginning 0)
+  ;; (let ((pos (match-beginning 0)))
+  ;;   (goto-char (1+ pos))
+  ;;   pos)
+  )
  :search-input (pointless-helper-read-char-timer pointless-jump-char-timeout "Goto characters before timeout: ")
  :sort-fn pointless-sort-candidates-before-after-point)
 
