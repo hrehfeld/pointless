@@ -51,9 +51,9 @@
 (defvar pointless-resume-command nil)
 (defvar pointless-repeat-command nil)
 (defvar pointless-last-command-args nil)
-(defvar pointless-last-traverse-keys nil)
+(defvar pointless-last-select-keys nil)
 (defvar pointless-last-action-fn nil)
-(defvar pointless-last-chosen-index nil)
+(defvar pointless-last-selected-index nil)
 
 (defvar pointless-keys '(("asdfghjkl;'" . ?h) ("qwertyuiop" . ?y) ("zxcvbnm,." . ?b) ("1234567890" . ?6)) "A list of strings of keys that are used as jump keys.
 
@@ -352,7 +352,7 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
                                              ;; if at leaf node
                                              (if (pointless--tree-position-p chosen-item)
                                                  (progn
-                                                   (setq pointless-last-traverse-keys prefix-keys
+                                                   (setq pointless-last-select-keys prefix-keys
                                                          pointless-last-action-fn action-fn)
                                                    (let ((res (funcall action-fn chosen-item)))
                                                      (message "pointless--select %S %S" (or res chosen-item) res)
@@ -712,7 +712,7 @@ Each function takes the position as its only argument. See
     (eq nil invisible?)))
 
 
-(defun pointless-defjump--clean-positions (positions sort-fn max-num-candidates)
+(defun pointless--jump-clean-positions (positions sort-fn max-num-candidates)
   (let* ((positions (seq-uniq positions))
          (positions (-filter #'pointless-filter-position-due-to-text-properties positions))
          (positions (-filter (apply-partially #'/= (point)) positions))
@@ -720,48 +720,31 @@ Each function takes the position as its only argument. See
          (positions (if max-num-candidates (seq-take positions max-num-candidates) positions)))
     positions))
 
+(defun pointless--jump-get-positions (candidates-fn search-input sort-fn max-num-candidates)
+  (let* ((positions (funcall candidates-fn search-input))
+         (positions (pointless--jump-clean-positions positions sort-fn max-num-candidates)))
+    positions))
+
 (defun pointless--jump-repeat (name keyset candidates-fn sort-fn partition-fn max-num-candidates)
-  "Same signature as `pointless--jump-resume'."
-  (cl-assert pointless-last-traverse-keys t)
-  (let* ((positions (funcall candidates-fn pointless-last-search-input))
-         (positions (pointless-defjump--clean-positions positions sort-fn max-num-candidates))
-         ;; (keys-faces-positions-nodes (pointless-make-jump-keys-unidirectional keyset positions partition-fn))
-         )
-    ;;(message "pointless-defjump-do-jump: %S %S" candidates-fn positions)
+  "Same signature as `pointless--jump-select'."
+  (cl-assert (not (eq nil pointless-last-selected-index)) t)
+  (let* ((positions (pointless--jump-get-positions candidates-fn pointless-last-search-input sort-fn max-num-candidates)))
     ;; just return the same offset in positions instead of walking the tree
-    (funcall pointless-last-action-fn (nth pointless-last-chosen-index positions))
-    ;; (cl-labels ((walk (prefix-keys keys-faces-positions-nodes)
-    ;;                   (message "keys-faces-positions-nodes: %S" keys-faces-positions-nodes)
-    ;;                   (let ((node (alist-get (pop prefix-keys) keys-faces-positions-nodes)))
-    ;;                     (cl-assert node t "%S" keys-faces-positions-nodes)
-    ;;                     (cl-destructuring-bind (face item) node
-    ;;                       (message "%S" item)
-    ;;                       (if (pointless--tree-position-p item)
-    ;;                           (funcall pointless-last-action-fn item)
-    ;;                         (walk prefix-keys item))))))
-    ;;   (walk pointless-last-traverse-keys keys-faces-positions-nodes))
-    ))
+    (funcall pointless-last-action-fn (nth pointless-last-selected-index positions))))
 
 
-(defun pointless--jump-resume (name keyset candidates-fn sort-fn partition-fn max-num-candidates)
+(defun pointless--jump-select (name keyset candidates-fn sort-fn partition-fn max-num-candidates)
   "Same signature as `pointless--jump-repeat'."
-  (let* ((positions (funcall candidates-fn pointless-last-search-input))
-         (positions (pointless-defjump--clean-positions positions sort-fn max-num-candidates))
+  (let* ((positions (pointless--jump-get-positions candidates-fn pointless-last-search-input sort-fn max-num-candidates))
          (keys-faces-positions-nodes (pointless-make-jump-keys-unidirectional keyset positions partition-fn)))
     ;;(message "pointless-defjump-do-jump: %S %S" candidates-fn positions)
     (let ((position (pointless-select name keys-faces-positions-nodes)))
-      (setq pointless-last-chosen-index (-elem-index position positions))
-      ;; (message "pointless-last-chosen-index: %S %S %S" pointless-last-chosen-index position positions)
+      (setq pointless-last-selected-index (-elem-index position positions))
+      ;; (message "pointless-last-chosen-index: %S %S %S" pointless-last-selected-index position positions)
       position)))
 
 
-(defun pointless--jump-query (name keyset candidates-fn sort-fn partition-fn max-num-candidates search-input-fn)
-  "Same signature as `pointless--jump-repeat',but with extra `search-input-fn' at the end."
-  (setq pointless-last-search-input (when search-input-fn (funcall search-input-fn)))
-  (pointless--jump-resume name keyset candidates-fn sort-fn partition-fn max-num-candidates))
-
-
-(defun pointless-defjump-do-jump (name keyset search-input-fn candidates-fn sort-fn partition-fn max-num-candidates)
+(defun pointless--jump (name keyset search-input-fn candidates-fn sort-fn partition-fn max-num-candidates)
   ;; first, try to detect active multiple cursors
   (let ((keyset (pointless-keyset-default name pointless-jump-keysets keyset))
         (sort-fn (pointless-sort-candidates-function-default name sort-fn))
@@ -774,8 +757,9 @@ Each function takes the position as its only argument. See
       (message "mc: full: %S" name)
       (setq pointless-repeat-command 'pointless--jump-repeat
             pointless-last-command-args (list name keyset candidates-fn sort-fn partition-fn max-num-candidates)
-            pointless-resume-command 'pointless--jump-resume)
-      (pointless--jump-query name keyset candidates-fn sort-fn partition-fn max-num-candidates search-input-fn))))
+            pointless-resume-command 'pointless--jump-select
+            pointless-last-search-input (when search-input-fn (funcall search-input-fn)))
+      (pointless--jump-select name keyset candidates-fn sort-fn partition-fn max-num-candidates))))
 
 
 ;; &key aren't working with &rest for some reason
@@ -816,7 +800,7 @@ candidates as the single argument and returns the list sorted.
                 (,max-num-candidates ,(or (plist-get keyword-args :max-num-candidates) 999)) ;;use upper limit of 999 candidates if none given
                 (,keyset ,(plist-get keyword-args :keyset))
                 )
-           (pointless-defjump-do-jump
+           (pointless--jump
             ',name
             ,keyset
             (lambda () ,(plist-get keyword-args :search-input))
