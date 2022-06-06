@@ -38,10 +38,6 @@
        )))
 
 
-(defun pointless--make-overlay (start char &optional face)
-  "Make a single char overlay and return it."
-
-  )
 
 (defun pointless-target-show (position length str)
   ;;(cl-assert (eq (get-text-property position 'display) nil) "Position already has a display text property!")
