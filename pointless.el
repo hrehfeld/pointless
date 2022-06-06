@@ -298,7 +298,7 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
         keys-overlays))
 
 
-(defun pointless--do-jump-no-user-options (keys-faces-positions-nodes keys-actions compose-fn action-fn)
+(defun pointless--select (keys-faces-positions-nodes keys-actions compose-fn action-fn)
   "`COMMAND-NAME' is the name of the calling command."
   (unless keys-faces-positions-nodes
     (user-error "No valid jump targets."))
@@ -349,17 +349,16 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
                                      (setq position-read
                                            (let ((chosen-item (caddr (nth ikey nodes))))
                                              (cl-assert chosen-item)
-                                             ;;(message "pointless-do-jump before next")
                                              ;; if at leaf node
                                              (if (pointless--tree-position-p chosen-item)
                                                  (progn
                                                    (setq pointless-last-traverse-keys prefix-keys
                                                          pointless-last-action-fn action-fn)
                                                    (let ((res (funcall action-fn chosen-item)))
-                                                     (message "pointless--do-jump-no-user-options %S %S" (or res chosen-item) res)
+                                                     (message "pointless--select %S %S" (or res chosen-item) res)
                                                      (or res chosen-item)))
                                                (let ((res (read-level (1+ ilevel) prefix-keys chosen-item)))
-                                                 (message "pointless--do-jump-no-user-options %S" res)
+                                                 (message "pointless--select %S" res)
                                                  res))))))))
                              position-read)))
             (read-level 0 nil keys-faces-positions-nodes)))
@@ -406,7 +405,7 @@ See `pointless-push-mark'.")
 
 (defvar pointless-action-default-function #'pointless-action-jump
   "The action that is called when not overridden by jump specific defaults.
-See `pointless-action-jump' and `pointless--do-jump-no-user-options'.")
+See `pointless-action-jump' and `pointless--select'.")
 (defvar pointless-action-function-alist nil "Define default
 action functions in an alist per command.")
 
@@ -429,7 +428,7 @@ Each function takes the position as its only argument. See
 
 
 
-(defun pointless-do-jump (command-name keys-faces-positions-nodes &optional compose-fn action-fn keys-actions)
+(defun pointless-select (command-name keys-faces-positions-nodes &optional compose-fn action-fn keys-actions)
   "`COMMAND-NAME' is the name of the calling command."
   (let ((compose-fn
          (or compose-fn
@@ -444,7 +443,7 @@ Each function takes the position as its only argument. See
              (assq command-name pointless-action-function-alist)
              (-zip-lists pointless-action-keyset (mapcar #'car pointless-action-functions)))))
     (setq pointless-this-command command-name)
-    (pointless--do-jump-no-user-options keys-faces-positions-nodes keys-actions compose-fn action-fn)))
+    (pointless--select keys-faces-positions-nodes keys-actions compose-fn action-fn)))
 
 (defun pointless-resume ()
   (interactive)
@@ -466,22 +465,22 @@ Each function takes the position as its only argument. See
 
 (defun pointless-jump-chars-words-lines ()
   (interactive)
-  (pointless-do-jump pointless-keys
-                     (pointless-make-targets-function-backward-forward #'backward-char #'forward-char)
-                     (pointless-make-targets-function-backward-forward #'backward-word #'forward-word)
-                     (pointless-make-targets-function-backward-forward (lambda ()
-                                                                         (previous-line)
-                                                                         (beginning-of-line))
-                                                                       (lambda ()
-                                                                         (next-line)
-                                                                         (beginning-of-line)))
-                     (pointless-make-targets-function-backward-forward (lambda ()
-                                                                         (previous-line)
-                                                                         (end-of-line))
-                                                                       (lambda ()
-                                                                         (next-line)
-                                                                         (end-of-line)))
-                     )
+  (pointless-select pointless-keys
+                    (pointless-make-targets-function-backward-forward #'backward-char #'forward-char)
+                    (pointless-make-targets-function-backward-forward #'backward-word #'forward-word)
+                    (pointless-make-targets-function-backward-forward (lambda ()
+                                                                        (previous-line)
+                                                                        (beginning-of-line))
+                                                                      (lambda ()
+                                                                        (next-line)
+                                                                        (beginning-of-line)))
+                    (pointless-make-targets-function-backward-forward (lambda ()
+                                                                        (previous-line)
+                                                                        (end-of-line))
+                                                                      (lambda ()
+                                                                        (next-line)
+                                                                        (end-of-line)))
+                    )
   )
 
 (defun pointless-keys ()
@@ -634,7 +633,7 @@ Each function takes the position as its only argument. See
                                         mark-ring)))
          (keys (car (pointless-get-keys-unidirectional)))
          (faces (-repeat (length keys) 'pointless-target)))
-    (pointless-do-jump (pointless-make-jump-keys-unidirectional keys (seq-take positions pointless-moveto-mark-max-candidates))))
+    (pointless-select (pointless-make-jump-keys-unidirectional keys (seq-take positions pointless-moveto-mark-max-candidates))))
 )
 
 (defun pointless-make-targets-backward-forward (keyset face backward-f forward-f)
@@ -657,7 +656,7 @@ Each function takes the position as its only argument. See
 
 (defun pointless-moveto-end-of-line ()
   (interactive)
-  (pointless-do-jump
+  (pointless-select
    (pointless-make-targets-backward-forward
     (car (pointless-keys))
     'pointless-target
@@ -679,7 +678,7 @@ Each function takes the position as its only argument. See
     `(defun ,name ()
        (interactive)
        (let* ((,positions (progn ,@positions-form)))
-         (pointless-do-jump
+         (pointless-select
           ',name
           (-zip
            ;;keys
@@ -750,7 +749,7 @@ Each function takes the position as its only argument. See
          (positions (pointless-defjump--clean-positions positions sort-fn max-num-candidates))
          (keys-faces-positions-nodes (pointless-make-jump-keys-unidirectional keyset positions partition-fn)))
     ;;(message "pointless-defjump-do-jump: %S %S" candidates-fn positions)
-    (let ((position (pointless-do-jump name keys-faces-positions-nodes)))
+    (let ((position (pointless-select name keys-faces-positions-nodes)))
       (setq pointless-last-chosen-index (-elem-index position positions))
       ;; (message "pointless-last-chosen-index: %S %S %S" pointless-last-chosen-index position positions)
       position)))
