@@ -1,6 +1,17 @@
-;; -*- lexical-binding: t; eval: (aggressive-indent-mode); -*-
+;;; pointless.el --- An avy clone -*- lexical-binding: t; eval: (aggressive-indent-mode); -*-
+;; Author: Hauke Rehfeld <emacs@haukerehfeld.de>
+;; Version: 0.1
+;; URL: https://github.com/hrehfeld/pointless/
+;; This file is not part of GNU Emacs.
+;;; Commentary:
+;; TODO
+;; Package-Requires: ((emacs "25.1") dash cl-lib seq)
 
+(require 'cl-lib)
+(require 'seq)
 (require 'dash)
+
+;;; Code:
 
 (defun pointless-interleave-with-rest (&rest lists)
   "Return a new list of the first item in each list, then the second etc."
@@ -23,6 +34,9 @@
 
 
 (defmacro pointless-save-window-start-and-mark-and-excursion (&rest body)
+  "Save everything interesting to pointless, execute `BODY', restore.
+
+Return result of `BODY'."
   (let ((window-start (cl-gensym 'pointless-window-start))
         (window (cl-gensym 'pointless-window))
         (point (cl-gensym 'pointless-point))
@@ -34,34 +48,31 @@
        (set-window-start ,window ,window-start)
        ;; (cl-assert (= (point) ,point) t)
        (goto-char ,point)
-       ,result
-       )))
-
+       ,result)))
 
 
 (defun pointless-target-show (position length str)
   ;;(cl-assert (eq (get-text-property position 'display) nil) "Position already has a display text property!")
   ;;(cl-assert (eq (get-text-property position 'face) nil) "Position already has a face text property!")
-  (let* ((overlay (make-overlay position (+ position length)  nil t nil))
-         )
+  (let* ((overlay (make-overlay position (+ position length)  nil t nil)))
     (overlay-put overlay
                  (if (eq position (point-max)) 'after-string 'display)
                  str)
     (overlay-put overlay 'read-only t)
-    (list overlay)
-    ))
+    (list overlay)))
 
 (defun pointless-target-hide (overlays)
   (cl-assert (listp overlays))
   (mapc #'delete-overlay overlays))
 
 (defvar pointless-last-search-input nil "The result of the last pre-tree-traverse input.")
-(defvar pointless-resume-command nil)
-(defvar pointless-repeat-command nil)
-(defvar pointless-last-command-args nil)
-(defvar pointless-last-select-keys nil)
-(defvar pointless-last-action-fn nil)
-(defvar pointless-last-selected-index nil)
+(defvar pointless-resume-command nil "Which command to call when resuming.")
+(defvar pointless-repeat-command nil "Which command to call when repeating.")
+(defvar pointless-last-command-args nil
+  "Arguments to either `pointless-repeat-command' or `pointless-resume-command'.")
+(defvar pointless-last-select-keys nil "Last key combination that selected a leaf from a tree.")
+(defvar pointless-last-action-fn nil "Last used action function. See `pointless-action-functions'.")
+(defvar pointless-last-selected-index nil "Index of last element that was selected with `pointless-select'.")
 
 (defvar pointless-keys '(("asdfghjkl;'" . ?h) ("qwertyuiop" . ?y) ("zxcvbnm,." . ?b) ("1234567890" . ?6)) "A list of strings of keys that are used as jump keys.
 
@@ -1002,3 +1013,4 @@ PROMPT will be used as the prompt after format-args are applied to it using `for
 ;;(remove-overlays)
 
 (provide 'pointless)
+;;; pointless.el ends here
