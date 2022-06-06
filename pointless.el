@@ -2,6 +2,18 @@
 
 (require 'dash)
 
+(defun pointless-interleave-with-rest (&rest lists)
+  "Return a new list of the first item in each list, then the second etc."
+  (declare (pure t) (side-effect-free t))
+  (when lists
+    (let (result)
+      (while (--any? (consp it) lists)
+        (while (-none? 'null lists)
+          (--each lists (!cons (car it) result))
+          (setq lists (-map 'cdr lists)))
+        (setq lists (-filter #'consp lists)))
+      (nreverse result))))
+
 (defface pointless-target `((t . (:foreground "white" :background "#892E8B"))) "Generic face for a pointless jump target.")
 (defface pointless-target-1 `((t . (:inherit pointless-target))) "First face for pointless jump targets.")
 (defface pointless-target-2 `((t . (:background "#DE3E7A" :inherit pointless-target))) "Second face for pointless jump targets.")
@@ -142,10 +154,11 @@ pointless will use these list to build keys relative to point, each list element
 
 (defun pointless-sort-candidates-before-after-point (candidates)
   (let ((point (point)))
-    (apply #'-interleave (mapcar (lambda (fn)
-                                   (--> (--filter (funcall fn it point) candidates)
-                                        (cl-stable-sort it #'< :key (lambda (pos) (abs (- pos point))))))
-                                 '(< >=)))))
+    (apply #'pointless-interleave-with-rest
+           (mapcar (lambda (fn)
+                     (--> (--filter (funcall fn it point) candidates)
+                          (cl-stable-sort it #'< :key (lambda (pos) (abs (- pos point))))))
+                   '(< >=)))))
 
 
 (defun pointless--show-keys (keys-faces position next-position &optional compose-fn)
