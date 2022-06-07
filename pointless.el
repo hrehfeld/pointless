@@ -770,7 +770,7 @@ Each function takes the position as its only argument. See
         (sort-fn (pointless-sort-candidates-function-default name sort-fn))
         (partition-fn (pointless-partition-candidates-function-default name partition-fn)))
     (message "mc: %S %S" this-command pointless-this-command)
-    (if mc--executing-command-for-fake-cursor
+    (if (and (boundp 'mc--executing-command-for-fake-cursor) mc--executing-command-for-fake-cursor)
         (progn
           (message "mc:pointless-resume")
           (pointless-repeat))
