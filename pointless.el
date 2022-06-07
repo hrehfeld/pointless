@@ -855,9 +855,7 @@ candidates as the single argument and returns the list sorted.
 (pointless-defmove-unidirectional pointless-moveto-mark (pointless-source-mark))
 (pointless-defjump-unidirectional pointless-jump-mark
                                   (pointless-source-mark)
-                                  :max-num-candidates pointless-moveto-mark-max-candidates
-                                  :partition-fn #'pointless-partition-values-top-down
-                                  )
+                                  :max-num-candidates pointless-moveto-mark-max-candidates)
 
 (pointless-defjump-unidirectional pointless-jump-beginning-of-line
                                   (pointless--collect-targets-iteratively
