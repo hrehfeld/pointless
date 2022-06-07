@@ -13,6 +13,7 @@
 
 ;;; Code:
 
+;; FIXME: use -interleave-all once merged
 (defun pointless-interleave-with-rest (&rest lists)
   "Return a new list of the first item in each list, then the second etc."
   (declare (pure t) (side-effect-free t))
