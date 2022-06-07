@@ -97,8 +97,8 @@ pointless will use these list to build keys relative to point, each list element
 
 (defun pointless-call-with-keyset (key-set fun)
   (let* ((keys (string-to-list (car key-set)))
-           (after-point-key (cdr key-set)))
-      (funcall fun keys after-point-key)))
+         (after-point-key (cdr key-set)))
+    (funcall fun keys after-point-key)))
 
 
 (cl-defun pointless--collect-targets-iteratively (create-targets-fun
@@ -245,7 +245,7 @@ Each function is called with KEY and POSITION as its arguments.")
 
 (defvar pointless-make-jump-keys-unidirectional-partition-function
   #'pointless-partition-values-top-down
-    "The default function that is used by
+  "The default function that is used by
 `pointless-make-jump-keys-unidirectional' to partition values into
 number-of-keys subsets at each level of the tree.")
 
@@ -282,9 +282,9 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
   (let ((value (or (alist-get command-name command-value-alist)
                    explicit-arg
                    default-value)))
-                   (when type
-                     (eval `(cl-check-type ',value ,type) t))
-                     value))
+    (when type
+      (eval `(cl-check-type ',value ,type) t))
+    value))
 
 (defun pointless-sort-candidates-function-default (command-name &optional partition-fn)
   (pointless-helper-default command-name pointless-sort-candidates-function-alist pointless-sort-candidates-default-function partition-fn))
@@ -523,7 +523,7 @@ Each function takes the position as its only argument. See
 
 (defun pointless-partition-values-quick-first (values num-keys &optional quick-key-ratio tree-keys-first?)
   ""
-      ;;(message "values: %S" values)
+  ;;(message "values: %S" values)
   ;; (seq-partition values (1+ (/ (length values) 2)))
   (let* ((num-values (length values))
          (quick-key-ratio (or quick-key-ratio 0.75))
@@ -654,7 +654,7 @@ Each function takes the position as its only argument. See
          (keys (car (pointless-get-keys-unidirectional)))
          (faces (-repeat (length keys) 'pointless-target)))
     (pointless-select (pointless-make-jump-keys-unidirectional keys (seq-take positions pointless-moveto-mark-max-candidates))))
-)
+  )
 
 (defun pointless-make-targets-backward-forward (keyset face backward-f forward-f)
   (cl-destructuring-bind (keys after-point-key) keyset
@@ -846,48 +846,49 @@ candidates as the single argument and returns the list sorted.
 
 
 
-(defun pointless-source-mark () (seq-uniq (--filter (and (/= it (point))
-                                                         (>= it (window-start)) (< it (window-end)))
-                                                    (let ((marks (seq-filter #'marker-buffer mark-ring)))
-                                                      (if (not (eq (mark t) nil))
-                                                          (cons (mark) marks)
-                                                        marks)))))
+(defun pointless-source-mark ()
+  (seq-uniq (--filter (and (/= it (point))
+                           (>= it (window-start)) (< it (window-end)))
+                      (let ((marks (seq-filter #'marker-buffer mark-ring)))
+                        (if (not (eq (mark t) nil))
+                            (cons (mark) marks)
+                          marks)))))
 
 (pointless-defmove-unidirectional pointless-moveto-mark (pointless-source-mark))
 (pointless-defjump-unidirectional pointless-jump-mark
-                                  (pointless-source-mark)
-                                  :max-num-candidates pointless-moveto-mark-max-candidates)
+  (pointless-source-mark)
+  :max-num-candidates pointless-moveto-mark-max-candidates)
 
 (pointless-defjump-unidirectional pointless-jump-beginning-of-line
-                                  (pointless--collect-targets-iteratively
-                                   (lambda (istep)
-                                     (goto-char (window-start))
-                                     (beginning-of-line (1+ istep)))
-                                   :start-position-fn (apply-partially #'goto-char (window-start))
-                                   ))
+  (pointless--collect-targets-iteratively
+   (lambda (istep)
+     (goto-char (window-start))
+     (beginning-of-line (1+ istep)))
+   :start-position-fn (apply-partially #'goto-char (window-start))
+   ))
 
 
 
 (pointless-defjump-unidirectional pointless-jump-beginning-of-line-text
-                                  (pointless--collect-targets-iteratively
-                                   (lambda () (beginning-of-line-text 2))
-                                   :start-position-fn (lambda ()
-                                                        (goto-char (window-start))
-                                                        (beginning-of-line-text))
-                                   :include-start-position t
-                                   ))
+  (pointless--collect-targets-iteratively
+   (lambda () (beginning-of-line-text 2))
+   :start-position-fn (lambda ()
+                        (goto-char (window-start))
+                        (beginning-of-line-text))
+   :include-start-position t
+   ))
 
 (pointless-defjump-unidirectional pointless-jump-end-of-line
-                                  (pointless--collect-targets-iteratively
-                                   (lambda ()
-                                     (next-line)
-                                     (end-of-line))
-                                   :include-start-position t
-                                   :start-position-fn (lambda ()
-                                                        (goto-char (window-start))
-                                                        (end-of-line))
-                                   )
-                                  :sort-fn pointless-sort-candidates-before-after-point)
+  (pointless--collect-targets-iteratively
+   (lambda ()
+     (next-line)
+     (end-of-line))
+   :include-start-position t
+   :start-position-fn (lambda ()
+                        (goto-char (window-start))
+                        (end-of-line))
+   )
+  :sort-fn pointless-sort-candidates-before-after-point)
 
 (defun pointless-source-word-beginning ()
   (nreverse (pointless--collect-targets-iteratively
@@ -915,10 +916,10 @@ candidates as the single argument and returns the list sorted.
 (pointless-defjump-unidirectional pointless-jump-word-beginning (pointless-source-word-beginning))
 
 (pointless-defjump-unidirectional pointless-jump-word-beginning-1
-                                  (let ((char (pointless-helper-read-char-as-string "Word beginning character: ")))
-                                    (seq-filter (apply-partially #'pointless-helper-buffer-looking-at-string char)
-                                                (pointless-source-word-beginning))
-                                    ))
+  (let ((char (pointless-helper-read-char-as-string "Word beginning character: ")))
+    (seq-filter (apply-partially #'pointless-helper-buffer-looking-at-string char)
+                (pointless-source-word-beginning))
+    ))
 
 (defun pointless-helper-read-char-timer (timeout prompt &rest format-args)
   "Read a character, then read more characters in TIMEOUT seconds after that.
@@ -940,73 +941,73 @@ PROMPT will be used as the prompt after format-args are applied to it using `for
 (defvar pointless-jump-char-timeout 0.75 "Timeout before pointless-jump-char-timeout stops reading input")
 
 (pointless-defjump-unidirectional
- pointless-jump-char-timeout
- (goto-char (window-start))
- (cl-loop
-  while (re-search-forward (regexp-quote search-input) (window-end) t)
-  ;; do
-  ;; (message "timeout: (progn (goto-char %S) (re-search-forward (regexp-quote \"%s\") (window-end) t))
-  ;; %i %i %i %i" i  search-input (match-beginning 0) (point) (window-start) (window-end)
-  ;; )
-  collect
-  (match-beginning 0)
-  ;; (let ((pos (match-beginning 0)))
-  ;;   (goto-char (1+ pos))
-  ;;   pos)
-  )
- :search-input (pointless-helper-read-char-timer pointless-jump-char-timeout "Goto characters before timeout: ")
- :sort-fn pointless-sort-candidates-before-after-point)
+  pointless-jump-char-timeout
+  (goto-char (window-start))
+  (cl-loop
+   while (re-search-forward (regexp-quote search-input) (window-end) t)
+   ;; do
+   ;; (message "timeout: (progn (goto-char %S) (re-search-forward (regexp-quote \"%s\") (window-end) t))
+   ;; %i %i %i %i" i  search-input (match-beginning 0) (point) (window-start) (window-end)
+   ;; )
+   collect
+   (match-beginning 0)
+   ;; (let ((pos (match-beginning 0)))
+   ;;   (goto-char (1+ pos))
+   ;;   pos)
+   )
+  :search-input (pointless-helper-read-char-timer pointless-jump-char-timeout "Goto characters before timeout: ")
+  :sort-fn pointless-sort-candidates-before-after-point)
 
 (pointless-defjump-unidirectional pointless-jump-char-1
-                                  (let ((char (pointless-helper-read-char-as-string "Goto character: ")))
-                                    (mapcar #'1-
-                                            (pointless--collect-targets-iteratively
-                                             (lambda (istep) (unless (re-search-forward (regexp-quote char) nil t)
-                                                               (end-of-buffer))
-                                               ;;(message "%S %i %S %i" (point) (point-max) (< (point) (point-max)) istep)
-                                               )
-                                             :start-position-fn (apply-partially #'goto-char (window-start))))
-                                    ))
+  (let ((char (pointless-helper-read-char-as-string "Goto character: ")))
+    (mapcar #'1-
+            (pointless--collect-targets-iteratively
+             (lambda (istep) (unless (re-search-forward (regexp-quote char) nil t)
+                               (end-of-buffer))
+               ;;(message "%S %i %S %i" (point) (point-max) (< (point) (point-max)) istep)
+               )
+             :start-position-fn (apply-partially #'goto-char (window-start))))
+    ))
 
 (pointless-defjump-unidirectional pointless-jump-char-line-1
-                                  (let ((char (pointless-helper-read-char-as-string "Goto character in line: ")))
-                                    (mapcar #'1-
-                                              (pointless--collect-targets-iteratively
-                                               (lambda (istep) (pointless-helper-re-search-forward (regexp-quote char)))
-                                               :start-position-fn (apply-partially #'goto-char (line-beginning-position))
-                                               :region-begin (line-beginning-position)
-                                               :region-end (line-end-position)))
-                                    ))
+  (let ((char (pointless-helper-read-char-as-string "Goto character in line: ")))
+    (mapcar #'1-
+            (pointless--collect-targets-iteratively
+             (lambda (istep) (pointless-helper-re-search-forward (regexp-quote char)))
+             :start-position-fn (apply-partially #'goto-char (line-beginning-position))
+             :region-begin (line-beginning-position)
+             :region-end (line-end-position)))
+    ))
 
 
 (pointless-defjump-unidirectional pointless-jump-org-headline
-                                  (pointless--collect-targets-iteratively
-                                   (lambda (istep) (org-next-visible-heading 1))
-                                   :start-position-fn (apply-partially #'goto-char (window-start))))
+  (pointless--collect-targets-iteratively
+   (lambda (istep) (org-next-visible-heading 1))
+   :start-position-fn (apply-partially #'goto-char (window-start))))
 
 (pointless-defjump-unidirectional pointless-jump-org-headline-tags
-                                  (mapcar #'1-
-                                            (pointless--collect-targets-iteratively
-                                             (lambda (istep) (pointless-helper-re-search-forward org-tag-line-re))
-                                             :start-position-fn (apply-partially #'goto-char (window-start)))))
+  (mapcar #'1-
+          (pointless--collect-targets-iteratively
+           (lambda (istep) (pointless-helper-re-search-forward org-tag-line-re))
+           :start-position-fn (apply-partially #'goto-char (window-start)))))
 
 (pointless-defjump-unidirectional pointless-jump-keyword
-                                  (let ((face 'font-lock-keyword-face))
-                                    (pointless--collect-targets-iteratively
-                                     (lambda (istep) (unless (text-property-search-forward 'face face #'eq t)
-                                                       (end-of-buffer)))
-                                     :start-position-fn (apply-partially #'goto-char (window-start)))))
+  (let ((face 'font-lock-keyword-face))
+    (pointless--collect-targets-iteratively
+     (lambda (istep) (unless (text-property-search-forward 'face face #'eq t)
+                       (end-of-buffer)))
+     :start-position-fn (apply-partially #'goto-char (window-start)))))
 
 (pointless-defjump-unidirectional pointless-jump-sexp
- (append
-  (pointless--collect-targets-iteratively
-   (lambda (istep)
-     (with-demoted-errors
-         (sp-forward-sexp))))
-  (pointless--collect-targets-iteratively
-   (lambda (istep)
-     (with-demoted-errors
-         (sp-backward-sexp))))))
+  (append
+   (pointless--collect-targets-iteratively
+    (lambda (istep)
+      (with-demoted-errors
+          (sp-forward-sexp))))
+   (pointless--collect-targets-iteratively
+    (lambda (istep)
+      (with-demoted-errors
+          (sp-backward-sexp))))))
 
 
 ;;(remove-overlays)
