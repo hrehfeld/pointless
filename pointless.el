@@ -805,6 +805,7 @@ candidates as the single argument and returns the list sorted.
 `:PARTITION-FN' is a candidate partition function handed to
 `pointless-make-jump-keys-unidirectional'.
 "
+  (declare (indent defun))
   (cl-destructuring-bind (candidates-forms keyword-args)
       (pointless--normalize-keyword-arguments-with-rest '(:sort-fn :partition-fn :max-num-candidates :keyset :search-input) args)
     ;;(message "%S" keyword-args)
