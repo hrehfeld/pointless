@@ -393,7 +393,8 @@ See `pointless-push-mark'.")
 
 (defun pointless-push-mark ()
   "Save the mark if it is active and we're not inside a recursive pointless jump. See `pointless-this-command'."
-  (unless (or mark-active (eq this-command pointless-this-command))
+  (unless (or mark-active ;; (eq this-command pointless-this-command)
+              )
     (push-mark nil nil)))
 
 (defun pointless-action-jump (position)
