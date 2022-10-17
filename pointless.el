@@ -472,7 +472,6 @@ Each function takes the position as its only argument. See
 
 (defun pointless--call-resume-command ()
   (cl-check-type pointless-resume-command function)
-  (cl-check-type pointless-last-search-input-fn function)
   (cl-check-type pointless-last-command-args list)
   (apply pointless-resume-command (append pointless-last-command-args)))
 
