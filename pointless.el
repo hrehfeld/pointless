@@ -899,6 +899,13 @@ candidates as the single argument and returns the list sorted.
              :start-position-fn (apply-partially #'goto-char (1- (window-end)))
              :include-start-position t)))
 
+(defun pointless-source-symbol-beginning ()
+  (nreverse (pointless--collect-targets-iteratively
+             (lambda (istep)
+               (forward-symbol -1))
+             :start-position-fn (apply-partially #'goto-char (1- (window-end)))
+             :include-start-position t)))
+
 (defun pointless-helper-buffer-char-as-string (pos)
   (buffer-substring-no-properties pos (1+ pos)))
 
@@ -914,13 +921,29 @@ candidates as the single argument and returns the list sorted.
   (unless (re-search-forward re nil t)
     (end-of-buffer)))
 
-(pointless-defjump-unidirectional pointless-jump-word-beginning (pointless-source-word-beginning))
+(cl-defmacro pointless-toggle-mode (mode pre-arg  &rest body)
+  (let ((old-state (symbol-value mode)))
+    (unless (equal old-state pre-arg)
+      (funcall mode pre-arg))
+    `(prog1
+         (progn ,@body)
+       (funcall (quote ,mode) ,old-state))
+    ))
+
+(pointless-defjump-unidirectional pointless-jump-subword-beginning
+  (pointless-toggle-mode subword-mode 1 (pointless-source-word-beginning)))
+
+(pointless-defjump-unidirectional pointless-jump-word-beginning
+  (pointless-toggle-mode subword-mode -1 (pointless-source-word-beginning)))
 
 (pointless-defjump-unidirectional pointless-jump-word-beginning-1
   (let ((char (pointless-helper-read-char-as-string "Word beginning character: ")))
     (seq-filter (apply-partially #'pointless-helper-buffer-looking-at-string char)
                 (pointless-source-word-beginning))
     ))
+
+(pointless-defjump-unidirectional pointless-jump-symbol-beginning
+  (pointless-source-symbol-beginning))
 
 (defun pointless-helper-read-char-timer (timeout prompt &rest format-args)
   "Read a character, then read more characters in TIMEOUT seconds after that.
