@@ -210,6 +210,13 @@ pointless will use these list to build keys relative to point, each list element
                     tree-or-position)
         ))))
 
+
+(defun pointless--marker-position-safe (pos-or-marker)
+  "Return the position of `POS-OR-MARKER' if it is a marker, otherwise return `POS-OR-MARKER'."
+  (if (markerp pos-or-marker)
+      (marker-position pos-or-marker)
+    pos-or-marker))
+
 (defun pointless--create-overlays (keys-faces-positions-nodes &optional compose-fn)
   "Create overlays from the `KEYS-FACES-POSITIONS-NODES' and return an
 list like `((POSITION KEY-SEQUENCE (OVERLAY ...) (OVERLAY ...) ...) ...)'"
@@ -221,11 +228,7 @@ list like `((POSITION KEY-SEQUENCE (OVERLAY ...) (OVERLAY ...) ...) ...)'"
   (let* ((positions-prefix-keys (seq-mapcat #'pointless--get-position-prefix-keys keys-faces-positions-nodes))
          (positions-prefix-keys (cl-stable-sort positions-prefix-keys #'<
                                                 :key (lambda (position--prefix-keys)
-                                                       (let ((position (car position--prefix-keys)))
-                                                         (if (markerp position)
-                                                             (marker-position position)
-                                                           position)))))
-         )
+                                                       (pointless--marker-position-safe (car position--prefix-keys))))))
     ;;(message "pointless--create-overlays positions-prefix-keys: %S" positions-prefix-keys)
     (apply #'seq-concatenate 'list
            (let ((tail (cdr positions-prefix-keys))
@@ -750,8 +753,7 @@ Each function takes the position as its only argument. See
 
 (defun pointless--jump-clean-positions (positions sort-fn max-num-candidates)
   ;;(message "pointless--jump-clean-positions: %S %S %S" positions sort-fn max-num-candidates)
-  (let* ((positions (seq-uniq positions (lambda (a b) (cl-labels ((get-pos (pos) (if (markerp pos) (marker-position pos) pos)))
-                                                        (= (get-pos a) (get-pos b))))))
+  (let* ((positions (seq-uniq positions (lambda (a b) (= (pointless--marker-position-safe a) (pointless--marker-position-safe b)))))
          (positions (-filter #'pointless-filter-position-due-to-text-properties positions))
          (positions (-filter (apply-partially #'/= (point)) positions))
          (positions (if sort-fn (funcall sort-fn positions) positions))
