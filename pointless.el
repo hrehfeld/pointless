@@ -220,7 +220,8 @@ list like `((POSITION KEY-SEQUENCE (OVERLAY ...) (OVERLAY ...) ...) ...)'"
          (positions-prefix-keys (cl-stable-sort positions-prefix-keys #'< :key #'car))
          )
     (apply #'seq-concatenate 'list
-           (let ((tail (cdr positions-prefix-keys)))
+           (let ((tail (cdr positions-prefix-keys))
+                 next-position)
              (cl-loop
               for (position prefix-keys) in positions-prefix-keys
               ;; only place overlay on a single char, so we only take buffer-substring of length 1
