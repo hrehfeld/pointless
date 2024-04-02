@@ -201,9 +201,11 @@ pointless will use these list to build keys relative to point, each list element
     (let ((prefix-keys (cons (cons key face) prefix-keys)))
       ;;(message "%S %S --- %S" key face tree-or-position)
       (if (pointless--tree-position-p tree-or-position)
-          ;; leaf nodes show and return positions & prefix-keys (as well as faces)
+          ;; leaf node
+          ;; show and return positions & prefix-keys (as well as faces)
           (list (list tree-or-position (seq-reverse prefix-keys)))
-        ;; inner nodes just collect prefixes and results
+        ;; inner node
+        ;; just collect prefixes and results
         (seq-mapcat (lambda (el) (pointless--get-position-prefix-keys el prefix-keys))
                     tree-or-position)
         ))))
@@ -224,6 +226,7 @@ list like `((POSITION KEY-SEQUENCE (OVERLAY ...) (OVERLAY ...) ...) ...)'"
                                                              (marker-position position)
                                                            position)))))
          )
+    ;;(message "pointless--create-overlays positions-prefix-keys: %S" positions-prefix-keys)
     (apply #'seq-concatenate 'list
            (let ((tail (cdr positions-prefix-keys))
                  next-position)
@@ -343,55 +346,55 @@ Should either be a list of `cons' cells `(LIST-OR-STRING-OF-KEYS . MIDDLE-KEY)' 
         (with-local-quit
           (cl-labels
               ((read-level (ilevel prefix-keys nodes)
-                           "Read the `ilevel'-th level of the jump tree.
+                 "Read the `ilevel'-th level of the jump tree.
 
 `prefix-keys' are the previosly pressed keys if any.
 `keys-treenodes'."
-                           ;;(message "ilevel: %S,	prefix-keys: %S,	tree: %S" ilevel prefix-keys nodes)
-                           (setq keys-overlays (pointless--create-overlays nodes compose-fn))
-                           ;;(message "%S" keys-overlays)
-                           ;;(check-overlays keys-overlays)
+                 ;;(message "ilevel: %S,	prefix-keys: %S,	tree: %S" ilevel prefix-keys nodes)
+                 (setq keys-overlays (pointless--create-overlays nodes compose-fn))
+                 ;;(message "%S" keys-overlays)
+                 ;;(check-overlays keys-overlays)
 
-                           ;; loop while key was selecting an action instead of walking the tree
-                           (let (position-read)
-                             (while (not position-read)
-                               (let* ((keys (mapcar #'car nodes))
-                                      (action-keys (mapcar #'car keys-actions))
-                                      (key (read-char-choice-with-read-key (format "%s: (%s) or action [%s]"
-                                                                                   (let ((verb (alist-get action-fn pointless-action-functions)))
-                                                                                     (if verb
-                                                                                         (s-capitalize verb)
-                                                                                       (format "[error: check pointless-action-functions for %S]" action-fn)))
-                                                                                   (s-join "" (--map (char-to-string it) keys))
-                                                                                   (s-join "" (--map (char-to-string it) action-keys))
-                                                                                   )
-                                                                           (seq-concatenate 'list keys action-keys)))
-                                      )
-                                 ;;(message "%S %S" key action-keys)
-                                 (if (member key action-keys)
-                                     (progn (cl-assert (not (member key keys)) nil "Overlapping keys: action-keys: %S and position-keys: %S" action-keys keys)
-                                            (let ((ikey (seq-position action-keys key)))
-                                              (setq action-fn (cadr (nth ikey keys-actions)))
-                                              (message "setting action-fn to %s" action-fn)))
-                                   ;; not an action key, walk tree
-                                   (let* ((ikey (seq-position keys key))
-                                          (prefix-keys (cons key prefix-keys)))
-                                     (pointless-target-hide keys-overlays)
-                                     (setq position-read
-                                           (let ((chosen-item (caddr (nth ikey nodes))))
-                                             (cl-assert chosen-item)
-                                             ;; if at leaf node
-                                             (if (pointless--tree-position-p chosen-item)
-                                                 (progn
-                                                   (setq pointless-last-select-keys prefix-keys
-                                                         pointless-last-action-fn action-fn)
-                                                   (let ((res (funcall action-fn chosen-item)))
-                                                     ;; (message "pointless--select %S %S" (or res chosen-item) res)
-                                                     (or res chosen-item)))
-                                               (let ((res (read-level (1+ ilevel) prefix-keys chosen-item)))
-                                                 ;; (message "pointless--select %S" res)
-                                                 res))))))))
-                             position-read)))
+                 ;; loop while key was selecting an action instead of walking the tree
+                 (let (position-read)
+                   (while (not position-read)
+                     (let* ((keys (mapcar #'car nodes))
+                            (action-keys (mapcar #'car keys-actions))
+                            (key (read-char-choice-with-read-key (format "%s: (%s) or action [%s]"
+                                                                         (let ((verb (alist-get action-fn pointless-action-functions)))
+                                                                           (if verb
+                                                                               (s-capitalize verb)
+                                                                             (format "[error: check pointless-action-functions for %S]" action-fn)))
+                                                                         (s-join "" (--map (char-to-string it) keys))
+                                                                         (s-join "" (--map (char-to-string it) action-keys))
+                                                                         )
+                                                                 (seq-concatenate 'list keys action-keys)))
+                            )
+                       ;;(message "%S %S" key action-keys)
+                       (if (member key action-keys)
+                           (progn (cl-assert (not (member key keys)) nil "Overlapping keys: action-keys: %S and position-keys: %S" action-keys keys)
+                                  (let ((ikey (seq-position action-keys key)))
+                                    (setq action-fn (cadr (nth ikey keys-actions)))
+                                    (message "setting action-fn to %s" action-fn)))
+                         ;; not an action key, walk tree
+                         (let* ((ikey (seq-position keys key))
+                                (prefix-keys (cons key prefix-keys)))
+                           (pointless-target-hide keys-overlays)
+                           (setq position-read
+                                 (let ((chosen-item (caddr (nth ikey nodes))))
+                                   (cl-assert chosen-item)
+                                   ;; if at leaf node
+                                   (if (pointless--tree-position-p chosen-item)
+                                       (progn
+                                         (setq pointless-last-select-keys prefix-keys
+                                               pointless-last-action-fn action-fn)
+                                         (let ((res (funcall action-fn chosen-item)))
+                                           ;; (message "pointless--select %S %S" (or res chosen-item) res)
+                                           (or res chosen-item)))
+                                     (let ((res (read-level (1+ ilevel) prefix-keys chosen-item)))
+                                       ;; (message "pointless--select %S" res)
+                                       res))))))))
+                   position-read)))
             (read-level 0 nil keys-faces-positions-nodes)))
       (pointless-target-hide keys-overlays)
       (setq inhibit-quit nil))))
@@ -596,52 +599,54 @@ Each function takes the position as its only argument. See
   (cl-check-type keys (satisfies listp))
   (cl-assert (length> keys 1) t)
   (cl-check-type positions (list-of number-or-marker))
+  ;;(message "pointless-make-jump-keys-unidirectional %S %S" keys positions)
   (cl-assert (equal positions (seq-uniq positions)) t)
   (let* ((keys (if (stringp keys) (string-to-list keys) keys))
          (num-keys (length keys))
          (keys-faces-positions-nodes
           (cl-labels
               ((descend (ilevel values)
-                        (let* ((num-values (length values))
-                               (face (or (nth ilevel pointless-faces) 'pointless-face-further))
-                               (faces (-repeat num-values face)))
-                          ;;(message "level: %S,	num-keys: %S,	num-values: %S,	keys: %S" ilevel num-keys num-values keys)
-                          ;;(message "	positions: %S" values)
-                          (let ((res (if (<= num-values num-keys)
-                                         values
-                                       (let ((position-partitions (funcall partition-fn values num-keys)))
-                                         (cl-check-type position-partitions (list-of (list-of number-or-marker)))
-                                         (cl-assert (<= (length position-partitions) num-keys) t)
-                                         (seq-map (lambda (positions)
-                                                    (if (length> positions 1)
-                                                        (progn (mapc (lambda (p)
-                                                                       (cl-assert (number-or-marker-p p) t "%S" positions))
-                                                                     positions)
-                                                               (descend (1+ ilevel) positions))
-                                                      (let ((position (car positions)))
-                                                        (cl-check-type position number-or-marker)
-                                                        position)))
-                                                  position-partitions)))))
-                            (-zip-lists keys faces res)))))
+                 (let* ((num-values (length values))
+                        (face (or (nth ilevel pointless-faces) 'pointless-face-further))
+                        (faces (-repeat num-values face)))
+                   ;;(message "level: %S,	num-keys: %S,	num-values: %S,	keys: %S" ilevel num-keys num-values keys)
+                   ;;(message "	positions: %S" values)
+                   (let ((res (if (<= num-values num-keys)
+                                  values
+                                (let ((position-partitions (funcall partition-fn values num-keys)))
+                                  (cl-check-type position-partitions (list-of (list-of number-or-marker)))
+                                  (cl-assert (<= (length position-partitions) num-keys) t)
+                                  (seq-map (lambda (positions)
+                                             (if (length> positions 1)
+                                                 (progn (mapc (lambda (p)
+                                                                (cl-assert (number-or-marker-p p) t "%S" positions))
+                                                              positions)
+                                                        (descend (1+ ilevel) positions))
+                                               (let ((position (car positions)))
+                                                 (cl-check-type position number-or-marker)
+                                                 position)))
+                                           position-partitions)))))
+                     (-zip-lists keys faces res)))))
 
             (descend 0 positions))))
+    ;;(message "pointless-make-jump-keys-unidirectional %S %S" keys-faces-positions-nodes positions)
     (cl-check-type keys-faces-positions-nodes list)
     (cl-labels ((count-leafs (key-face-positions)
-                             ;; (message "count-leafs %S" key-face-positions)
-                             (cl-assert (length= key-face-positions 3) t)
-                             (cl-destructuring-bind (key face values) key-face-positions
-                               (cl-check-type values (or list pointless--tree-position))
-                               (unless (pointless--tree-position-p values)
-                                 (mapc (lambda (val)
-                                         (cl-check-type val list)
-                                         (cl-check-type (car val) number)
-                                         (cl-check-type (cadr val) symbol)
-                                         (cl-check-type (caddr val) (or list pointless--tree-position)))
-                                       values))
-                               (if (pointless--tree-position-p values)
-                                   1
-                                 (cl-reduce #'+ (mapcar #'count-leafs values))))
-                             ))
+                  ;; (message "count-leafs %S" key-face-positions)
+                  (cl-assert (length= key-face-positions 3) t)
+                  (cl-destructuring-bind (key face values) key-face-positions
+                    (cl-check-type values (or list pointless--tree-position))
+                    (unless (pointless--tree-position-p values)
+                      (mapc (lambda (val)
+                              (cl-check-type val list)
+                              (cl-check-type (car val) number)
+                              (cl-check-type (cadr val) symbol)
+                              (cl-check-type (caddr val) (or list pointless--tree-position)))
+                            values))
+                    (if (pointless--tree-position-p values)
+                        1
+                      (cl-reduce #'+ (mapcar #'count-leafs values))))
+                  ))
       ;;(cl-check-type key-face-positions (list-of number))
       ;; (message "%S" key-face-positions)
       ;; (message "%S" positions)
@@ -744,12 +749,14 @@ Each function takes the position as its only argument. See
 
 
 (defun pointless--jump-clean-positions (positions sort-fn max-num-candidates)
+  ;;(message "pointless--jump-clean-positions: %S %S %S" positions sort-fn max-num-candidates)
   (let* ((positions (seq-uniq positions (lambda (a b) (cl-labels ((get-pos (pos) (if (markerp pos) (marker-position pos) pos)))
                                                         (= (get-pos a) (get-pos b))))))
          (positions (-filter #'pointless-filter-position-due-to-text-properties positions))
          (positions (-filter (apply-partially #'/= (point)) positions))
          (positions (if sort-fn (funcall sort-fn positions) positions))
          (positions (if max-num-candidates (seq-take positions max-num-candidates) positions)))
+    ;;(message "pointless--jump-clean-positions: %S %S %S" positions sort-fn max-num-candidates)
     positions))
 
 (defun pointless--jump-get-positions (candidates-fn search-input sort-fn max-num-candidates)
@@ -781,12 +788,12 @@ Each function takes the position as its only argument. See
   (let ((keyset (pointless-keyset-default name pointless-jump-keysets keyset))
         (sort-fn (pointless-sort-candidates-function-default name sort-fn))
         (partition-fn (pointless-partition-candidates-function-default name partition-fn)))
-    (message "mc: %S %S" this-command pointless-this-command)
+    ;;(message "mc: %S %S" this-command pointless-this-command)
     (if (and (boundp 'mc--executing-command-for-fake-cursor) mc--executing-command-for-fake-cursor)
         (progn
-          (message "mc:pointless-resume")
+          ;;(message "mc:pointless-resume")
           (pointless-repeat))
-      (message "mc: full: %S" name)
+      ;;(message "mc: full: %S" name)
       (setq pointless-repeat-command 'pointless--jump-repeat
             pointless-last-command-args (list name keyset candidates-fn sort-fn partition-fn max-num-candidates)
             pointless-resume-command 'pointless--jump-select
