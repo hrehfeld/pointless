@@ -734,7 +734,8 @@ Each function takes the position as its only argument. See
 
 
 (defun pointless--jump-clean-positions (positions sort-fn max-num-candidates)
-  (let* ((positions (seq-uniq positions))
+  (let* ((positions (seq-uniq positions (lambda (a b) (cl-labels ((get-pos (pos) (if (markerp pos) (marker-position pos) pos)))
+                                                        (= (get-pos a) (get-pos b))))))
          (positions (-filter #'pointless-filter-position-due-to-text-properties positions))
          (positions (-filter (apply-partially #'/= (point)) positions))
          (positions (if sort-fn (funcall sort-fn positions) positions))
