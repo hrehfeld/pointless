@@ -217,7 +217,12 @@ list like `((POSITION KEY-SEQUENCE (OVERLAY ...) (OVERLAY ...) ...) ...)'"
     (cl-assert (equal keys (seq-uniq keys))))
   ;;(message "pointless--create-overlays %S" keys-faces-positions-nodes)
   (let* ((positions-prefix-keys (seq-mapcat #'pointless--get-position-prefix-keys keys-faces-positions-nodes))
-         (positions-prefix-keys (cl-stable-sort positions-prefix-keys #'< :key #'car))
+         (positions-prefix-keys (cl-stable-sort positions-prefix-keys #'<
+                                                :key (lambda (position--prefix-keys)
+                                                       (let ((position (car position--prefix-keys)))
+                                                         (if (markerp position)
+                                                             (marker-position position)
+                                                           position)))))
          )
     (apply #'seq-concatenate 'list
            (let ((tail (cdr positions-prefix-keys))
