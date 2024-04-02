@@ -851,9 +851,12 @@ candidates as the single argument and returns the list sorted.
 (defun pointless-source-mark ()
   (seq-uniq (--filter (and (/= it (point))
                            (>= it (window-start)) (< it (window-end)))
-                      (let ((marks (seq-filter #'marker-buffer mark-ring)))
-                        (if (not (eq (mark t) nil))
-                            (cons (mark) marks)
+                      ;; make sure each mark has a buffer
+                      (let ((marks (seq-filter #'marker-buffer mark-ring))
+                            (mark (mark t)))
+                        ;; add the current mark as it's not in mark-ring
+                        (if (not (eq mark nil))
+                            (cons mark marks)
                           marks)))))
 
 (pointless-defmove-unidirectional pointless-moveto-mark (pointless-source-mark))
