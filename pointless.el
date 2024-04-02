@@ -874,6 +874,16 @@ candidates as the single argument and returns the list sorted.
   (pointless-source-mark)
   :max-num-candidates pointless-moveto-mark-max-candidates)
 
+(defun pointless-activate-mark ()
+  "Select a mark and activate the region to it."
+  (interactive)
+  (save-excursion
+    (pointless-jump-mark)
+    (push-mark nil t t))
+  (exchange-point-and-mark)
+  ;;(activate-mark t)
+  )
+
 (pointless-defjump-unidirectional pointless-jump-beginning-of-line
   (pointless--collect-targets-iteratively
    (lambda (istep)
