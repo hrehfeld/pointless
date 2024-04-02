@@ -586,8 +586,8 @@ Each function takes the position as its only argument. See
   (cl-check-type keys (satisfies listp))
   (cl-assert (length> keys 1) t)
   (cl-check-type positions (list-of number-or-marker))
-  (let* ((positions (seq-uniq positions))
-         (keys (if (stringp keys) (string-to-list keys) keys))
+  (cl-assert (equal positions (seq-uniq positions)) t)
+  (let* ((keys (if (stringp keys) (string-to-list keys) keys))
          (num-keys (length keys))
          (keys-faces-positions-nodes
           (cl-labels
