@@ -226,13 +226,17 @@ list like `((POSITION KEY-SEQUENCE (OVERLAY ...) (OVERLAY ...) ...) ...)'"
               for (position prefix-keys) in positions-prefix-keys
               ;; only place overlay on a single char, so we only take buffer-substring of length 1
               collect
-              (let* ((next-position (when tail (caar tail))))
-                (cl-check-type position number-or-marker)
-                (cl-check-type next-position (or null number-or-marker))
+              (let* ((next-position (when tail
+                                      (caar tail))))
                 (when tail
-                  (cl-assert (< position next-position) t)
+                  (cl-check-type next-position number-or-marker (format "%S %S" next-position (car tail)))
                   ;; keep tail in sync with iterator
                   (setq tail (cdr tail)))
+                (cl-check-type position number-or-marker)
+                (cl-check-type next-position (or null number-or-marker))
+                (when next-position
+                  (cl-assert (< position next-position) nil
+                             (format-message "Position %S is not before next position %S. Context: %S" position next-position (car tail))))
                 ;; (message "pointless--create-overlays %S %S" position next-position)
                 (pointless--show-keys prefix-keys position next-position compose-fn)))))))
 
